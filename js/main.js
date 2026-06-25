@@ -36,9 +36,13 @@ function renderCategories() {
 
   categoryGrid.innerHTML = categories.map((category, index) => `
     <button class="category-card" type="button" data-category-id="${category.id}" aria-pressed="${index === 0}">
-      <span class="category-icon" aria-hidden="true">${category.icon}</span>
+      <span class="category-meta">
+        <span class="category-icon" aria-hidden="true">${category.icon}</span>
+        <span class="category-number">0${index + 1}</span>
+      </span>
       <span class="category-title">${category.title}</span>
       <span class="category-summary">${category.summary}</span>
+      <span class="category-technique">${category.keywords.slice(0, 3).join(" · ")}</span>
     </button>
   `).join("");
 

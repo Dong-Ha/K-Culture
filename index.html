@@ -3,47 +3,73 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Discover K-Culture through music, dramas, food, fashion, festivals, and travel highlights.">
+  <meta name="description" content="Discover K-Culture through a modern editorial guide to music, dramas, food, fashion, festivals, and travel.">
   <title>Discover K-Culture</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <header class="site-header" id="top">
     <nav class="nav" aria-label="Main navigation">
-      <a class="brand" href="#top" aria-label="Discover K-Culture home">K-Culture</a>
+      <a class="brand" href="#top" aria-label="Discover K-Culture home">
+        <span class="brand-mark" aria-hidden="true">K</span>
+        <span>K-Culture</span>
+      </a>
       <ul class="nav-links">
-        <li><a href="#categories">Categories</a></li>
-        <li><a href="#facts">Facts</a></li>
-        <li><a href="#plan">MVP</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#categories">Core</a></li>
+        <li><a href="#works">Works</a></li>
+        <li><a href="#contact">Contact</a></li>
       </ul>
+      <a class="nav-cta" href="#categories">Menu</a>
     </nav>
 
     <section class="hero" aria-labelledby="hero-title">
-      <p class="eyebrow">A simple guide to Korean culture</p>
-      <h1 id="hero-title">Discover K-Culture</h1>
-      <p class="hero-copy">
-        Explore the energy, stories, flavors, traditions, and places that make Korean culture loved around the world.
-      </p>
-      <a class="button button-primary" href="#categories">Explore Categories</a>
+      <div class="hero-copy-wrap">
+        <p class="eyebrow">Korean wave field guide</p>
+        <h1 id="hero-title">Discover<br>K-Culture</h1>
+      </div>
+      <div class="hero-side">
+        <p>
+          A compact cultural studio for exploring Korean music, drama, food, fashion, festivals, and travel — organized like a modern agency showcase.
+        </p>
+        <a class="button button-primary" href="#categories">Explore Core</a>
+      </div>
     </section>
+
+    <div class="proof-strip" aria-label="Site highlights">
+      <div>
+        <span class="proof-label">Since</span>
+        <strong>2026</strong>
+      </div>
+      <div>
+        <span class="proof-label">Categories</span>
+        <strong>6+</strong>
+      </div>
+      <div>
+        <span class="proof-label">Format</span>
+        <strong>One Page</strong>
+      </div>
+    </div>
   </header>
 
   <main>
-    <section class="section intro" aria-labelledby="intro-title">
+    <section class="section intro" id="about" aria-labelledby="intro-title">
       <div>
-        <p class="section-kicker">MVP focus</p>
-        <h2 id="intro-title">One page, six gateways into K-culture</h2>
+        <p class="section-kicker">About</p>
+        <h2 id="intro-title">We connect cultural signals into a simple starting point.</h2>
       </div>
       <p>
-        This MVP keeps the experience lightweight: choose a category, read a short introduction, and collect beginner-friendly keywords for deeper discovery.
+        Inspired by a clean IT-agency layout, this MVP turns K-culture into a structured landing page: bold headline, core areas, project-like highlights, and practical keywords for deeper discovery.
       </p>
     </section>
 
     <section class="section categories" id="categories" aria-labelledby="categories-title">
-      <div class="section-heading">
-        <p class="section-kicker">Explore</p>
-        <h2 id="categories-title">K-Culture Categories</h2>
-        <p>Select a card to update the feature panel.</p>
+      <div class="section-heading split-heading">
+        <div>
+          <p class="section-kicker">Our core</p>
+          <h2 id="categories-title">We organize the essentials.</h2>
+        </div>
+        <p>Select a card to update the feature panel with keywords and representative examples.</p>
       </div>
 
       <div class="category-layout">
@@ -54,7 +80,7 @@
           <h3 id="feature-title">Loading...</h3>
           <p id="feature-description"></p>
           <div class="panel-group">
-            <h4>Keywords</h4>
+            <h4>Technique</h4>
             <ul class="keyword-list" id="feature-keywords"></ul>
           </div>
           <div class="panel-group">
@@ -65,9 +91,41 @@
       </div>
     </section>
 
+    <section class="section works" id="works" aria-labelledby="works-title">
+      <div class="section-heading split-heading">
+        <div>
+          <p class="section-kicker">Our works</p>
+          <h2 id="works-title">Beginner-friendly discovery tracks.</h2>
+        </div>
+        <a class="button button-secondary" href="#contact">Plan a route</a>
+      </div>
+      <div class="work-list">
+        <article class="work-item">
+          <span>01</span>
+          <h3>First K-pop listening map</h3>
+          <p>Performance, fandom vocabulary, and comeback culture.</p>
+        </article>
+        <article class="work-item">
+          <span>02</span>
+          <h3>Weekend K-drama starter kit</h3>
+          <p>Genres, OSTs, webtoon adaptations, and viewing notes.</p>
+        </article>
+        <article class="work-item">
+          <span>03</span>
+          <h3>K-food table guide</h3>
+          <p>Shared meals, banchan, street snacks, and fermentation.</p>
+        </article>
+        <article class="work-item">
+          <span>04</span>
+          <h3>Seoul-to-Jeju travel brief</h3>
+          <p>Markets, palaces, cafes, coasts, and cultural districts.</p>
+        </article>
+      </div>
+    </section>
+
     <section class="section facts" id="facts" aria-labelledby="facts-title">
       <div class="section-heading">
-        <p class="section-kicker">Did you know?</p>
+        <p class="section-kicker">Signals</p>
         <h2 id="facts-title">Culture facts</h2>
       </div>
       <div class="fact-grid">
@@ -86,20 +144,21 @@
       </div>
     </section>
 
-    <section class="section roadmap" id="plan" aria-labelledby="plan-title">
-      <div class="section-heading">
-        <p class="section-kicker">Build path</p>
-        <h2 id="plan-title">MVP roadmap</h2>
-      </div>
-      <ol class="roadmap-list">
-        <li><strong>Now:</strong> static one-page introduction with interactive categories.</li>
-        <li><strong>Next:</strong> add curated images, bilingual copy, and accessibility polish.</li>
-        <li><strong>Later:</strong> add a quiz, saved favorites, or a culture calendar.</li>
-      </ol>
+    <section class="section contact-band" id="contact" aria-labelledby="contact-title">
+      <p class="section-kicker">Always interested in hearing about new culture routes</p>
+      <h2 id="contact-title">Build your own K-culture discovery path.</h2>
+      <p>
+        Start with one category, collect the vocabulary, then branch into playlists, dramas, recipes, festivals, and travel plans.
+      </p>
+      <a class="button button-primary" href="#top">Back to top</a>
     </section>
   </main>
 
   <footer class="site-footer">
+    <a class="brand footer-brand" href="#top" aria-label="Discover K-Culture home">
+      <span class="brand-mark" aria-hidden="true">K</span>
+      <span>K-Culture</span>
+    </a>
     <p>Made with HTML, CSS, and JavaScript.</p>
     <p class="small">Content is introductory and should be reviewed with authoritative sources before publication.</p>
   </footer>
