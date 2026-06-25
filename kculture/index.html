@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Discover K-Culture through music, dramas, food, fashion, festivals, and travel highlights.">
+  <title>Discover K-Culture</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="site-header" id="top">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="Discover K-Culture home">K-Culture</a>
+      <ul class="nav-links">
+        <li><a href="#categories">Categories</a></li>
+        <li><a href="#facts">Facts</a></li>
+        <li><a href="#plan">MVP</a></li>
+      </ul>
+    </nav>
+
+    <section class="hero" aria-labelledby="hero-title">
+      <p class="eyebrow">A simple guide to Korean culture</p>
+      <h1 id="hero-title">Discover K-Culture</h1>
+      <p class="hero-copy">
+        Explore the energy, stories, flavors, traditions, and places that make Korean culture loved around the world.
+      </p>
+      <a class="button button-primary" href="#categories">Explore Categories</a>
+    </section>
+  </header>
+
+  <main>
+    <section class="section intro" aria-labelledby="intro-title">
+      <div>
+        <p class="section-kicker">MVP focus</p>
+        <h2 id="intro-title">One page, six gateways into K-culture</h2>
+      </div>
+      <p>
+        This MVP keeps the experience lightweight: choose a category, read a short introduction, and collect beginner-friendly keywords for deeper discovery.
+      </p>
+    </section>
+
+    <section class="section categories" id="categories" aria-labelledby="categories-title">
+      <div class="section-heading">
+        <p class="section-kicker">Explore</p>
+        <h2 id="categories-title">K-Culture Categories</h2>
+        <p>Select a card to update the feature panel.</p>
+      </div>
+
+      <div class="category-layout">
+        <div class="category-grid" id="category-grid" aria-label="K-culture category list"></div>
+
+        <article class="feature-panel" id="feature-panel" aria-live="polite" aria-labelledby="feature-title">
+          <p class="panel-label" id="feature-label">Featured category</p>
+          <h3 id="feature-title">Loading...</h3>
+          <p id="feature-description"></p>
+          <div class="panel-group">
+            <h4>Keywords</h4>
+            <ul class="keyword-list" id="feature-keywords"></ul>
+          </div>
+          <div class="panel-group">
+            <h4>Representative examples</h4>
+            <ul class="example-list" id="feature-examples"></ul>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section facts" id="facts" aria-labelledby="facts-title">
+      <div class="section-heading">
+        <p class="section-kicker">Did you know?</p>
+        <h2 id="facts-title">Culture facts</h2>
+      </div>
+      <div class="fact-grid">
+        <article class="fact-card">
+          <h3>Hallyu means Korean Wave</h3>
+          <p>The term describes the global spread of Korean pop culture, including music, dramas, film, beauty, and food.</p>
+        </article>
+        <article class="fact-card">
+          <h3>Food is a social experience</h3>
+          <p>Many Korean meals are shared at the table, with side dishes and conversation being part of the experience.</p>
+        </article>
+        <article class="fact-card">
+          <h3>Tradition and modernity mix</h3>
+          <p>Modern Korean culture often blends fast-moving trends with long-standing customs, design, and seasonal rituals.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section roadmap" id="plan" aria-labelledby="plan-title">
+      <div class="section-heading">
+        <p class="section-kicker">Build path</p>
+        <h2 id="plan-title">MVP roadmap</h2>
+      </div>
+      <ol class="roadmap-list">
+        <li><strong>Now:</strong> static one-page introduction with interactive categories.</li>
+        <li><strong>Next:</strong> add curated images, bilingual copy, and accessibility polish.</li>
+        <li><strong>Later:</strong> add a quiz, saved favorites, or a culture calendar.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Made with HTML, CSS, and JavaScript.</p>
+    <p class="small">Content is introductory and should be reviewed with authoritative sources before publication.</p>
+  </footer>
+
+  <script src="data/culture.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
