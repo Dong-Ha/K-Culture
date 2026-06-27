@@ -601,3 +601,161 @@ h3 {
     min-height: 14.5rem;
   }
 }
+
+.community {
+  display: grid;
+  gap: 1rem;
+}
+
+.post-layout {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.post-form,
+.post-board,
+.no-script-note {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 253, 247, 0.78);
+  box-shadow: var(--shadow-card);
+}
+
+.no-script-note {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.post-form {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.2rem, 3vw, 1.7rem);
+}
+
+.form-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.form-field label {
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: 3px solid rgba(244, 207, 68, 0.55);
+  border-color: var(--color-accent-strong);
+}
+
+.form-error,
+.form-status {
+  min-height: 1.2rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.form-error {
+  color: #a63616;
+}
+
+.form-status {
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.post-board {
+  overflow: hidden;
+}
+
+.post-board-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.2rem 1.35rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.post-board-heading h3 {
+  margin-bottom: 0;
+}
+
+.post-board-heading span,
+.post-card time {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.post-list {
+  display: grid;
+}
+
+.post-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1.2rem 1.35rem;
+}
+
+.post-card + .post-card {
+  border-top: 1px solid var(--color-line);
+}
+
+.post-card h4 {
+  margin-bottom: 0;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+
+.post-card p {
+  margin-bottom: 0;
+  color: var(--color-muted);
+}
+
+.post-category-pill {
+  width: fit-content;
+  padding: 0.34rem 0.62rem;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink);
+  background: var(--color-accent);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.empty-posts {
+  padding: 1.2rem 1.35rem;
+  color: var(--color-muted);
+}
+
+@media (min-width: 760px) {
+  .post-layout {
+    grid-template-columns: minmax(18rem, 0.8fr) minmax(0, 1.2fr);
+    align-items: start;
+  }
+}

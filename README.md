@@ -18,8 +18,11 @@ kculture/
     styles.css
   js/
     main.js
+    posts.js
   data/
     culture.js
+  tests/
+    posts.test.js
   assets/
     images/
     icons/
@@ -45,6 +48,7 @@ Then open `http://localhost:8000`.
 - Six K-culture category cards
 - Interactive detail panel powered by JavaScript
 - Culture facts section
+- Community post form with local-only browser storage
 - Responsive layout for mobile and desktop
 - Basic keyboard focus and accessibility-friendly button semantics
 
@@ -53,5 +57,6 @@ Then open `http://localhost:8000`.
 - Add curated, license-safe images
 - Add Korean/English language toggle
 - Add a quiz for personalized category recommendations
+- Add moderation and backend persistence if posts need to sync across devices
 - Add source citations for publication-ready content
 - Run Lighthouse and HTML validation before deployment
