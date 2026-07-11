@@ -42,13 +42,12 @@ python3 -m http.server 8000
 
 Then open `http://localhost:8000`.
 
-## MVP features
+## Features
 
-- Hero section with a clear call to action
-- Six K-culture category cards
-- Interactive detail panel powered by JavaScript
-- Culture facts section
-- Community post form backed by Supabase, with local browser cache fallback
+- Editorial home with latest-story and themed K-culture shelves
+- Music, drama, food, fashion, festival, and travel discovery sections
+- Curated starter stories with Supabase-backed administrator posts
+- Private administrator sign-in and publishing dialog
 - Responsive layout for mobile and desktop
 - Basic keyboard focus and accessibility-friendly button semantics
 
@@ -64,8 +63,19 @@ Then open `http://localhost:8000`.
 ## Supabase setup
 
 1. Open the Supabase SQL Editor for the project.
-2. Run `supabase/schema.sql` once.
-3. Reload the site and publish a test post.
+2. For a new database, run `supabase/schema.sql` once.
+3. Create the administrator under **Authentication > Users**.
+4. Copy that user's UUID and add it to `public.admins`:
+
+   ```sql
+   insert into public.admins (user_id) values ('YOUR-AUTH-USER-UUID');
+   ```
+
+5. Reload the site, choose **관리자** in the footer, and sign in.
+
+If the original public-post schema was already installed, run
+`supabase/admin-only.sql` instead of rerunning the full schema. This removes anonymous
+insert permission and restricts publishing to user UUIDs registered in `public.admins`.
 
 The publishable key in `js/supabase-config.js` is intended for browser use. Access is
 restricted by the row-level security policies in `supabase/schema.sql`; never place a

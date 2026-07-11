@@ -1,0 +1,11 @@
+window.KCULTURE_EDITORIAL = [
+  { id: "guide-kpop-stage", title: "K-pop 무대를 보는 세 가지 포인트", category: "kpop", content: "안무의 대형 변화, 카메라 동선, 팬 응원법을 알면 한 곡의 무대가 더 입체적으로 보입니다.", createdAt: "2026-07-10T00:00:00.000Z", readTime: "4 min" },
+  { id: "guide-drama-weekend", title: "주말에 시작하기 좋은 K-드라마 장르", category: "kdrama", content: "로맨스부터 생활극, 스릴러까지 취향에 맞는 첫 작품을 고르는 간단한 기준입니다.", createdAt: "2026-07-08T00:00:00.000Z", readTime: "5 min" },
+  { id: "guide-summer-table", title: "여름 한국 밥상의 시원한 한 그릇", category: "kfood", content: "냉면과 콩국수처럼 계절을 담은 음식에서 한국의 여름 식문화를 만나보세요.", createdAt: "2026-07-06T00:00:00.000Z", readTime: "3 min" },
+  { id: "guide-hanbok-lines", title: "한복의 선이 만드는 움직임", category: "hanbok", content: "저고리와 치마의 비례, 색의 조합을 통해 전통 의복의 현대적인 매력을 살펴봅니다.", createdAt: "2026-07-04T00:00:00.000Z", readTime: "4 min" },
+  { id: "guide-festival-calendar", title: "계절로 읽는 한국 축제 캘린더", category: "festivals", content: "봄의 꽃, 여름의 바다, 가을의 수확, 겨울의 빛을 따라 지역 축제를 골라보세요.", createdAt: "2026-07-02T00:00:00.000Z", readTime: "6 min" },
+  { id: "guide-seoul-alley", title: "서울 골목에서 만나는 오래된 것과 새로운 것", category: "travel", content: "궁궐 옆 골목과 작은 상점, 카페가 이어지는 하루짜리 문화 산책입니다.", createdAt: "2026-06-30T00:00:00.000Z", readTime: "5 min" },
+  { id: "guide-kpop-comeback", title: "컴백이라는 K-pop의 시간표", category: "kpop", content: "티저부터 음악방송까지 이어지는 컴백 주기를 초보자의 눈높이에서 정리합니다.", createdAt: "2026-06-28T00:00:00.000Z", readTime: "4 min" },
+  { id: "guide-drama-ost", title: "장면을 기억하게 하는 드라마 OST", category: "kdrama", content: "OST가 인물의 감정과 서사의 리듬을 어떻게 이어주는지 대표적인 감상법을 소개합니다.", createdAt: "2026-06-26T00:00:00.000Z", readTime: "4 min" },
+  { id: "guide-market-food", title: "전통시장에서 시작하는 K-food", category: "kfood", content: "빈대떡, 김밥, 떡볶이처럼 한 자리에서 다양한 맛을 경험하는 시장 이용 가이드입니다.", createdAt: "2026-06-24T00:00:00.000Z", readTime: "5 min" }
+];

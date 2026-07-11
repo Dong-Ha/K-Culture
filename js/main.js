@@ -1,241 +1,112 @@
 const categories = window.KCULTURE_CATEGORIES || [];
+const curatedStories = window.KCULTURE_EDITORIAL || [];
 const postUtils = window.KCulturePosts;
 const supabaseConfig = window.KCULTURE_SUPABASE;
+const SESSION_KEY = "kculture.adminSession";
 
-const categoryGrid = document.querySelector("#category-grid");
-const featureTitle = document.querySelector("#feature-title");
-const featureDescription = document.querySelector("#feature-description");
-const featureKeywords = document.querySelector("#feature-keywords");
-const featureExamples = document.querySelector("#feature-examples");
+const categoryMap = new Map(categories.map((category) => [category.id, category]));
 const postForm = document.querySelector("#post-form");
+const loginForm = document.querySelector("#login-form");
 const postCategory = document.querySelector("#post-category");
-const postBoard = document.querySelector("#post-board");
-const postList = document.querySelector("#post-list");
-const postCount = document.querySelector("#post-count");
 const postStatus = document.querySelector("#post-status");
+const adminDialog = document.querySelector("#admin-dialog");
 const postErrors = {
   title: document.querySelector("#post-title-error"),
   category: document.querySelector("#post-category-error"),
   content: document.querySelector("#post-content-error")
 };
+let stories = curatedStories.slice();
+let session = readSession();
 
-function getBrowserStorage() {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
+function readSession() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || null; } catch { return null; }
 }
-
-const allowedCategoryIds = categories.map((category) => category.id);
-let posts = postUtils ? postUtils.loadPosts(getBrowserStorage(), allowedCategoryIds) : [];
-
-function createListItems(items) {
-  return items.map((item) => `<li>${item}</li>`).join("");
+function saveSession(value) {
+  session = value;
+  try { value ? sessionStorage.setItem(SESSION_KEY, JSON.stringify(value)) : sessionStorage.removeItem(SESSION_KEY); } catch {}
 }
-
-function setActiveCategory(categoryId) {
-  const category = categories.find((item) => item.id === categoryId) || categories[0];
-
-  if (!category) {
-    return;
-  }
-
-  featureTitle.textContent = category.title;
-  featureDescription.textContent = category.description;
-  featureKeywords.innerHTML = createListItems(category.keywords);
-  featureExamples.innerHTML = createListItems(category.examples);
-
-  document.querySelectorAll(".category-card").forEach((card) => {
-    const isActive = card.dataset.categoryId === category.id;
-    card.classList.toggle("is-active", isActive);
-    card.setAttribute("aria-pressed", String(isActive));
-  });
-}
-
-function renderCategories() {
-  if (!categoryGrid) {
-    return;
-  }
-
-  categoryGrid.innerHTML = categories.map((category, index) => `
-    <button class="category-card" type="button" data-category-id="${category.id}" aria-pressed="${index === 0}">
-      <span class="category-meta">
-        <span class="category-icon" aria-hidden="true">${category.icon}</span>
-        <span class="category-number">0${index + 1}</span>
-      </span>
-      <span class="category-title">${category.title}</span>
-      <span class="category-summary">${category.summary}</span>
-      <span class="category-technique">${category.keywords.slice(0, 3).join(" · ")}</span>
-    </button>
-  `).join("");
-
-  categoryGrid.addEventListener("click", (event) => {
-    const card = event.target.closest(".category-card");
-
-    if (card) {
-      setActiveCategory(card.dataset.categoryId);
-    }
-  });
-}
-
-function formatPostDate(value) {
+function getBrowserStorage() { try { return window.localStorage; } catch { return null; } }
+function categoryLabel(id) { return categoryMap.get(id)?.title || id; }
+function formatDate(value) {
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  }).format(date);
+  return Number.isNaN(date.getTime()) ? "최근" : new Intl.DateTimeFormat("ko", { year: "numeric", month: "long", day: "numeric" }).format(date);
 }
-
-function getCategoryLabel(categoryId) {
-  return categories.find((category) => category.id === categoryId)?.title || categoryId;
+function sortStories(items) { return items.slice().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)); }
+function storyCard(story, index = 0) {
+  const article = document.createElement("article");
+  article.className = "story-card";
+  const art = document.createElement("div"); art.className = "story-art"; art.setAttribute("aria-hidden", "true"); art.dataset.theme = story.category;
+  const meta = document.createElement("div"); meta.className = "story-meta";
+  const category = document.createElement("span"); category.textContent = categoryLabel(story.category);
+  const readTime = document.createElement("span"); readTime.textContent = story.readTime || `${Math.max(2, Math.ceil(story.content.length / 90))} min`;
+  const title = document.createElement("h3"); title.textContent = story.title;
+  const content = document.createElement("p"); content.textContent = story.content;
+  const time = document.createElement("time"); time.dateTime = story.createdAt; time.textContent = formatDate(story.createdAt);
+  meta.append(category, readTime); article.append(art, meta, title, content, time); return article;
 }
-
-function renderPostCategoryOptions() {
-  if (!postCategory) {
-    return;
-  }
-
-  categories.forEach((category) => {
-    const option = document.createElement("option");
-    option.value = category.id;
-    option.textContent = category.title;
-    postCategory.append(option);
+function renderStories() {
+  const ordered = sortStories(stories);
+  const latest = document.querySelector("#latest-grid"); latest.replaceChildren(...ordered.slice(0, 5).map(storyCard));
+  document.querySelectorAll(".theme-section").forEach((section) => {
+    const ids = section.dataset.categories.split(",");
+    const matches = ordered.filter((story) => ids.includes(story.category)).slice(0, 6);
+    const grid = section.querySelector("[data-story-grid]");
+    if (matches.length) grid.replaceChildren(...matches.map(storyCard));
+    else { const empty = document.createElement("p"); empty.className = "empty-stories"; empty.textContent = "이 테마의 이야기를 준비하고 있습니다."; grid.replaceChildren(empty); }
   });
 }
-
-function renderPosts() {
-  if (!postList || !postCount) {
-    return;
-  }
-
-  postList.innerHTML = "";
-  postCount.textContent = `${posts.length} ${posts.length === 1 ? "post" : "posts"}`;
-
-  if (!posts.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-posts";
-    empty.textContent = "No posts yet. Publish the first K-culture note.";
-    postList.append(empty);
-    return;
-  }
-
-  posts.forEach((post) => {
-    const article = document.createElement("article");
-    article.className = "post-card";
-
-    const category = document.createElement("span");
-    category.className = "post-category-pill";
-    category.textContent = getCategoryLabel(post.category);
-
-    const title = document.createElement("h4");
-    title.textContent = post.title;
-
-    const content = document.createElement("p");
-    content.textContent = post.content;
-
-    const created = document.createElement("time");
-    created.dateTime = post.createdAt;
-    created.textContent = formatPostDate(post.createdAt);
-
-    article.append(category, title, content, created);
-    postList.append(article);
+function renderCategories() {
+  const grid = document.querySelector("#category-grid");
+  categories.forEach((item) => {
+    const card = document.createElement("a"); card.className = "category-card";
+    card.href = ({ kpop: "#music", kdrama: "#screen", kfood: "#table" })[item.id] || "#lifestyle";
+    const icon = document.createElement("b"); icon.textContent = item.icon;
+    const copy = document.createElement("div"); const strong = document.createElement("strong"); strong.textContent = item.title;
+    const summary = document.createElement("span"); summary.textContent = item.summary; copy.append(strong, document.createElement("br"), summary);
+    const arrow = document.createElement("b"); arrow.textContent = "→"; card.append(icon, copy, arrow); grid.append(card);
   });
+  categories.forEach((item) => { const option = document.createElement("option"); option.value = item.id; option.textContent = item.title; postCategory.append(option); });
 }
-
+function updateAdminView() {
+  const signedIn = Boolean(session?.access_token);
+  loginForm.hidden = signedIn; postForm.hidden = !signedIn;
+  document.querySelector("#admin-email").textContent = session?.user?.email || "관리자";
+}
 function setFormErrors(errors) {
-  Object.entries(postErrors).forEach(([field, element]) => {
-    const control = postForm?.elements[field];
-    const message = errors[field] || "";
-
-    if (element) {
-      element.textContent = message;
-    }
-
-    if (control) {
-      control.setAttribute("aria-invalid", String(Boolean(message)));
-    }
-  });
+  Object.entries(postErrors).forEach(([field, element]) => { element.textContent = errors[field] || ""; postForm.elements[field].setAttribute("aria-invalid", String(Boolean(errors[field]))); });
 }
-
-async function handlePostSubmit(event) {
+async function loadRemoteStories() {
+  try {
+    const remote = await postUtils.fetchRemotePosts(supabaseConfig);
+    postUtils.savePosts(getBrowserStorage(), remote);
+    stories = [...remote, ...curatedStories.filter((local) => !remote.some((item) => item.id === local.id))];
+    renderStories();
+  } catch (error) { console.error(error); }
+}
+loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault(); postStatus.textContent = "로그인 중...";
+  const data = new FormData(loginForm);
+  try {
+    const result = await postUtils.signInAdmin(supabaseConfig, { email: data.get("email"), password: data.get("password") });
+    saveSession({ access_token: result.access_token, user: result.user }); loginForm.reset(); updateAdminView(); postStatus.textContent = "관리자로 로그인했습니다.";
+  } catch { postStatus.textContent = "로그인에 실패했습니다. 관리자 계정을 확인하세요."; }
+});
+postForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-
-  if (!postUtils) {
-    return;
-  }
-
-  const formData = new FormData(postForm);
-  const result = postUtils.createPost({
-    title: formData.get("title"),
-    category: formData.get("category"),
-    content: formData.get("content")
-  }, undefined, allowedCategoryIds);
-
+  const data = new FormData(postForm);
+  const result = postUtils.createPost({ title: data.get("title"), category: data.get("category"), content: data.get("content") }, undefined, categories.map((item) => item.id));
   setFormErrors(result.errors);
-
-  if (!result.isValid) {
-    postStatus.textContent = "Please fix the highlighted fields.";
-    return;
-  }
-
-  const submitButton = postForm.querySelector('[type="submit"]');
-  submitButton.disabled = true;
-  postStatus.textContent = "Publishing post...";
-
+  if (!result.isValid) { postStatus.textContent = "입력 내용을 확인하세요."; return; }
+  const button = postForm.querySelector('[type="submit"]'); button.disabled = true; postStatus.textContent = "발행 중...";
   try {
-    const publishedPost = await postUtils.publishRemotePost(supabaseConfig, result.post);
-    posts = [publishedPost, ...posts].slice(0, postUtils.MAX_POSTS);
-    postUtils.savePosts(getBrowserStorage(), posts);
-    postForm.reset();
-    postStatus.textContent = "Post published for everyone.";
-    renderPosts();
-  } catch (error) {
-    console.error(error);
-    postStatus.textContent = "Post could not be published. Please try again.";
-  } finally {
-    submitButton.disabled = false;
-  }
-}
+    const published = await postUtils.publishRemotePost(supabaseConfig, result.post, session.access_token);
+    stories = [published, ...stories]; postForm.reset(); renderStories(); postStatus.textContent = "이야기를 발행했습니다.";
+  } catch { postStatus.textContent = "발행하지 못했습니다. 관리자 권한과 세션을 확인하세요."; }
+  finally { button.disabled = false; }
+});
+document.querySelector("#admin-open").addEventListener("click", () => { updateAdminView(); adminDialog.showModal(); });
+document.querySelector("#admin-close").addEventListener("click", () => adminDialog.close());
+document.querySelector("#logout-button").addEventListener("click", () => { saveSession(null); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
+adminDialog.addEventListener("click", (event) => { if (event.target === adminDialog) adminDialog.close(); });
 
-async function setupPosts() {
-  if (!postForm || !postUtils) {
-    return;
-  }
-
-  renderPostCategoryOptions();
-  renderPosts();
-  postForm.addEventListener("submit", handlePostSubmit);
-  postForm.hidden = false;
-
-  if (postBoard) {
-    postBoard.hidden = false;
-  }
-
-  if (!supabaseConfig) {
-    postStatus.textContent = "Shared posts are not configured. Showing posts saved on this device.";
-    return;
-  }
-
-  postStatus.textContent = "Loading shared posts...";
-
-  try {
-    posts = await postUtils.fetchRemotePosts(supabaseConfig);
-    postUtils.savePosts(getBrowserStorage(), posts);
-    renderPosts();
-    postStatus.textContent = "";
-  } catch (error) {
-    console.error(error);
-    postStatus.textContent = "Shared posts are temporarily unavailable. Showing posts saved on this device.";
-  }
-}
-
-renderCategories();
-setActiveCategory(categories[0]?.id);
-setupPosts();
+renderCategories(); renderStories(); updateAdminView(); loadRemoteStories();

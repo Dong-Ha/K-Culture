@@ -127,6 +127,7 @@ test('publishRemotePost sends only writable fields and maps the response', async
     assert.equal(url, 'https://example.supabase.co/rest/v1/posts');
     assert.equal(options.method, 'POST');
     assert.equal(options.headers.Prefer, 'return=representation');
+    assert.equal(options.headers.Authorization, 'Bearer admin-access-token');
     assert.deepEqual(JSON.parse(options.body), {
       title: 'Food note',
       category: 'kfood',
@@ -147,9 +148,25 @@ test('publishRemotePost sends only writable fields and maps the response', async
   const result = await posts.publishRemotePost(
     { url: 'https://example.supabase.co', publishableKey: 'public-key' },
     { id: 'local', title: 'Food note', category: 'kfood', content: 'Try a shared banchan table.', createdAt: 'old' },
+    'admin-access-token',
     fetchMock
   );
 
   assert.equal(result.id, '8');
   assert.equal(result.createdAt, '2026-07-11T01:00:00.000Z');
+});
+
+test('signInAdmin requests a password session', async () => {
+  const fetchMock = async (url, options) => {
+    assert.equal(url, 'https://example.supabase.co/auth/v1/token?grant_type=password');
+    assert.equal(options.method, 'POST');
+    assert.deepEqual(JSON.parse(options.body), { email: 'admin@example.com', password: 'secret' });
+    return { ok: true, json: async () => ({ access_token: 'token', user: { email: 'admin@example.com' } }) };
+  };
+  const session = await posts.signInAdmin(
+    { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+    { email: 'admin@example.com', password: 'secret' },
+    fetchMock
+  );
+  assert.equal(session.access_token, 'token');
 });

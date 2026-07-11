@@ -148,10 +148,10 @@
     }
   }
 
-  function getSupabaseHeaders(publishableKey, extraHeaders) {
+  function getSupabaseHeaders(publishableKey, extraHeaders, accessToken) {
     return {
       apikey: publishableKey,
-      Authorization: `Bearer ${publishableKey}`,
+      Authorization: `Bearer ${accessToken || publishableKey}`,
       ...extraHeaders
     };
   }
@@ -189,14 +189,14 @@
     return data.map(fromRemotePost).filter((post) => isValidStoredPost(post));
   }
 
-  async function publishRemotePost(config, post, fetchImpl) {
+  async function publishRemotePost(config, post, accessToken, fetchImpl) {
     const request = fetchImpl || global.fetch;
     const response = await request(`${config.url}/rest/v1/posts`, {
       method: "POST",
       headers: getSupabaseHeaders(config.publishableKey, {
         "Content-Type": "application/json",
         Prefer: "return=representation"
-      }),
+      }, accessToken),
       body: JSON.stringify(toRemotePost(post))
     });
 
@@ -206,6 +206,21 @@
 
     const data = await response.json();
     return fromRemotePost(data[0]);
+  }
+
+  async function signInAdmin(config, credentials, fetchImpl) {
+    const request = fetchImpl || global.fetch;
+    const response = await request(`${config.url}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: getSupabaseHeaders(config.publishableKey, { "Content-Type": "application/json" }),
+      body: JSON.stringify(credentials)
+    });
+
+    if (!response.ok) {
+      throw new Error("Invalid administrator credentials.");
+    }
+
+    return response.json();
   }
 
   const api = {
@@ -228,7 +243,8 @@
     toRemotePost,
     fromRemotePost,
     fetchRemotePosts,
-    publishRemotePost
+    publishRemotePost,
+    signInAdmin
   };
 
   global.KCulturePosts = api;
