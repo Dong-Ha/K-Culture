@@ -148,6 +148,66 @@
     }
   }
 
+  function getSupabaseHeaders(publishableKey, extraHeaders) {
+    return {
+      apikey: publishableKey,
+      Authorization: `Bearer ${publishableKey}`,
+      ...extraHeaders
+    };
+  }
+
+  function toRemotePost(post) {
+    return {
+      title: post.title,
+      category: post.category,
+      content: post.content
+    };
+  }
+
+  function fromRemotePost(post) {
+    return {
+      id: String(post.id),
+      title: post.title,
+      category: post.category,
+      content: post.content,
+      createdAt: post.created_at
+    };
+  }
+
+  async function fetchRemotePosts(config, fetchImpl) {
+    const request = fetchImpl || global.fetch;
+    const response = await request(
+      `${config.url}/rest/v1/posts?select=id,title,category,content,created_at&order=created_at.desc&limit=${MAX_POSTS}`,
+      { headers: getSupabaseHeaders(config.publishableKey) }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Unable to load posts (${response.status}).`);
+    }
+
+    const data = await response.json();
+    return data.map(fromRemotePost).filter((post) => isValidStoredPost(post));
+  }
+
+  async function publishRemotePost(config, post, fetchImpl) {
+    const request = fetchImpl || global.fetch;
+    const response = await request(`${config.url}/rest/v1/posts`, {
+      method: "POST",
+      headers: getSupabaseHeaders(config.publishableKey, {
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      }),
+      body: JSON.stringify(toRemotePost(post))
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unable to publish post (${response.status}).`);
+    }
+
+    const data = await response.json();
+    return fromRemotePost(data[0]);
+  }
+
   const api = {
     STORAGE_KEY,
     MAX_POSTS,
@@ -163,7 +223,12 @@
     isValidStoredPost,
     safeParsePosts,
     loadPosts,
-    savePosts
+    savePosts,
+    getSupabaseHeaders,
+    toRemotePost,
+    fromRemotePost,
+    fetchRemotePosts,
+    publishRemotePost
   };
 
   global.KCulturePosts = api;

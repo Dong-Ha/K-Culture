@@ -91,3 +91,65 @@ test('loadPosts and savePosts handle unavailable storage without crashing', () =
   assert.deepEqual(posts.loadPosts(brokenStorage, allowedCategories), posts.DEFAULT_POSTS);
   assert.equal(posts.savePosts(brokenStorage, []), false);
 });
+
+test('fetchRemotePosts maps Supabase rows to browser posts', async () => {
+  const fetchMock = async (url, options) => {
+    assert.match(url, /\/rest\/v1\/posts\?/);
+    assert.equal(options.headers.apikey, 'public-key');
+    return {
+      ok: true,
+      json: async () => [{
+        id: 7,
+        title: 'Shared post',
+        category: 'kpop',
+        content: 'This post is visible to everyone.',
+        created_at: '2026-07-11T00:00:00.000Z'
+      }]
+    };
+  };
+
+  const result = await posts.fetchRemotePosts(
+    { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+    fetchMock
+  );
+
+  assert.deepEqual(result, [{
+    id: '7',
+    title: 'Shared post',
+    category: 'kpop',
+    content: 'This post is visible to everyone.',
+    createdAt: '2026-07-11T00:00:00.000Z'
+  }]);
+});
+
+test('publishRemotePost sends only writable fields and maps the response', async () => {
+  const fetchMock = async (url, options) => {
+    assert.equal(url, 'https://example.supabase.co/rest/v1/posts');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.headers.Prefer, 'return=representation');
+    assert.deepEqual(JSON.parse(options.body), {
+      title: 'Food note',
+      category: 'kfood',
+      content: 'Try a shared banchan table.'
+    });
+    return {
+      ok: true,
+      json: async () => [{
+        id: 8,
+        title: 'Food note',
+        category: 'kfood',
+        content: 'Try a shared banchan table.',
+        created_at: '2026-07-11T01:00:00.000Z'
+      }]
+    };
+  };
+
+  const result = await posts.publishRemotePost(
+    { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+    { id: 'local', title: 'Food note', category: 'kfood', content: 'Try a shared banchan table.', createdAt: 'old' },
+    fetchMock
+  );
+
+  assert.equal(result.id, '8');
+  assert.equal(result.createdAt, '2026-07-11T01:00:00.000Z');
+});

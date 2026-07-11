@@ -48,7 +48,7 @@ Then open `http://localhost:8000`.
 - Six K-culture category cards
 - Interactive detail panel powered by JavaScript
 - Culture facts section
-- Community post form with local-only browser storage
+- Community post form backed by Supabase, with local browser cache fallback
 - Responsive layout for mobile and desktop
 - Basic keyboard focus and accessibility-friendly button semantics
 
@@ -60,3 +60,13 @@ Then open `http://localhost:8000`.
 - Add moderation and backend persistence if posts need to sync across devices
 - Add source citations for publication-ready content
 - Run Lighthouse and HTML validation before deployment
+
+## Supabase setup
+
+1. Open the Supabase SQL Editor for the project.
+2. Run `supabase/schema.sql` once.
+3. Reload the site and publish a test post.
+
+The publishable key in `js/supabase-config.js` is intended for browser use. Access is
+restricted by the row-level security policies in `supabase/schema.sql`; never place a
+Supabase secret or service-role key in this repository.

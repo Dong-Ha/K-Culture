@@ -1,5 +1,6 @@
 const categories = window.KCULTURE_CATEGORIES || [];
 const postUtils = window.KCulturePosts;
+const supabaseConfig = window.KCULTURE_SUPABASE;
 
 const categoryGrid = document.querySelector("#category-grid");
 const featureTitle = document.querySelector("#feature-title");
@@ -163,7 +164,7 @@ function setFormErrors(errors) {
   });
 }
 
-function handlePostSubmit(event) {
+async function handlePostSubmit(event) {
   event.preventDefault();
 
   if (!postUtils) {
@@ -184,16 +185,26 @@ function handlePostSubmit(event) {
     return;
   }
 
-  posts = [result.post, ...posts].slice(0, postUtils.MAX_POSTS);
-  const didSave = postUtils.savePosts(getBrowserStorage(), posts);
-  postForm.reset();
-  postStatus.textContent = didSave
-    ? "Post published locally."
-    : "Post added for this session. Browser storage is unavailable.";
-  renderPosts();
+  const submitButton = postForm.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  postStatus.textContent = "Publishing post...";
+
+  try {
+    const publishedPost = await postUtils.publishRemotePost(supabaseConfig, result.post);
+    posts = [publishedPost, ...posts].slice(0, postUtils.MAX_POSTS);
+    postUtils.savePosts(getBrowserStorage(), posts);
+    postForm.reset();
+    postStatus.textContent = "Post published for everyone.";
+    renderPosts();
+  } catch (error) {
+    console.error(error);
+    postStatus.textContent = "Post could not be published. Please try again.";
+  } finally {
+    submitButton.disabled = false;
+  }
 }
 
-function setupPosts() {
+async function setupPosts() {
   if (!postForm || !postUtils) {
     return;
   }
@@ -205,6 +216,23 @@ function setupPosts() {
 
   if (postBoard) {
     postBoard.hidden = false;
+  }
+
+  if (!supabaseConfig) {
+    postStatus.textContent = "Shared posts are not configured. Showing posts saved on this device.";
+    return;
+  }
+
+  postStatus.textContent = "Loading shared posts...";
+
+  try {
+    posts = await postUtils.fetchRemotePosts(supabaseConfig);
+    postUtils.savePosts(getBrowserStorage(), posts);
+    renderPosts();
+    postStatus.textContent = "";
+  } catch (error) {
+    console.error(error);
+    postStatus.textContent = "Shared posts are temporarily unavailable. Showing posts saved on this device.";
   }
 }
 
