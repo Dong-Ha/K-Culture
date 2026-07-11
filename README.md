@@ -2,6 +2,10 @@
 
 A lightweight static MVP website that introduces K-culture through six beginner-friendly categories: K-pop, K-drama, K-food, Hanbok & Fashion, Festivals, and Travel.
 
+## Language policy
+
+English is the primary and default language because the site is designed for international visitors. Public editorial content is authored in English first. The language tabs allow visitors to switch to Korean explicitly; every new visitor session starts in English.
+
 ## Tech stack
 
 - HTML
@@ -54,7 +58,7 @@ Then open `http://localhost:8000`.
 ## Future improvements
 
 - Add curated, license-safe images
-- Add Korean/English language toggle
+- Expand Korean translations as new English-first editorial stories are published
 - Add a quiz for personalized category recommendations
 - Add moderation and backend persistence if posts need to sync across devices
 - Add source citations for publication-ready content

@@ -3,6 +3,11 @@ const curatedStories = window.KCULTURE_EDITORIAL || [];
 const postUtils = window.KCulturePosts;
 const supabaseConfig = window.KCULTURE_SUPABASE;
 const SESSION_KEY = "kculture.adminSession";
+const translations = {
+  en: { skip:"Skip to content",navLabel:"Main navigation",languageLabel:"Language",navLatest:"Latest",navMusic:"Music",navScreen:"Screen",navFood:"Food",navLife:"Lifestyle",allThemes:"All themes",heroTitle:"Discover",heroBody:"Explore Korean culture through a song, a scene, or a shared meal—and discover the context behind the Korean Wave.",readLatest:"Read the latest stories",latestTitle:"Fresh from Korea",latestBody:"The K-culture guides to read first.",musicTitle:"K-pop beyond the stage",musicBody:"New ways to understand the music, performance, and fandom.",screenTitle:"Reading Korea through K-drama",screenBody:"Meet contemporary Korea through characters, places, and soundtracks.",foodTitle:"K-food is made to be shared",foodBody:"Seasonal flavors, markets, and the culture of a shared table.",lifeTitle:"Wear, walk, and experience Korea",lifeBody:"A cultural journey through style, seasonal festivals, and cities.",themesTitle:"Find your way into K-culture",aboutTitle:"Go beyond consuming K-culture.<br>Start understanding it.",aboutBody:"This journal connects music, screen stories, food, and places so newcomers can explore Korean culture without losing the context.",admin:"Admin",empty:"More stories for this theme are coming soon.",recent:"Recent"},
+  ko: { skip:"본문으로 건너뛰기",navLabel:"주요 메뉴",languageLabel:"언어",navLatest:"최신",navMusic:"음악",navScreen:"드라마",navFood:"푸드",navLife:"라이프",allThemes:"테마 전체",heroTitle:"오늘의",heroBody:"노래 한 곡, 장면 하나, 한 끼의 음식에서 시작하는 한국 문화 이야기. 익숙한 한류를 더 깊고 넓게 탐험합니다.",readLatest:"최신 이야기 읽기",latestTitle:"새로 올라온 이야기",latestBody:"지금 가장 먼저 읽어볼 K-컬처 가이드입니다.",musicTitle:"K-pop, 무대 뒤의 문화",musicBody:"음악과 퍼포먼스, 팬덤을 이해하는 새로운 관점.",screenTitle:"K-드라마로 읽는 한국",screenBody:"인물과 공간, OST에 담긴 오늘의 한국을 만납니다.",foodTitle:"한식, 함께 먹는 이야기",foodBody:"계절의 맛과 시장, 함께 차리는 밥상의 문화.",lifeTitle:"입고, 걷고, 경험하는 한국",lifeBody:"스타일과 계절 축제, 도시를 잇는 문화 여행.",themesTitle:"관심사로 찾아보기",aboutTitle:"K-컬처를 소비하는 데서<br>이해하는 데까지.",aboutBody:"이 저널은 처음 한국 문화를 만나는 사람도 맥락을 놓치지 않도록 음악, 화면, 음식과 장소 사이의 연결을 기록합니다.",admin:"관리자",empty:"이 테마의 이야기를 준비하고 있습니다.",recent:"최근"}
+};
+const categoryKo = { kpop:["K-pop","에너지 넘치는 음악과 퍼포먼스, 팬덤, 시각적 스토리텔링."], kdrama:["K-드라마","로맨스, 스릴러, 역사와 일상을 아우르는 감성적인 이야기."], kfood:["K-푸드","함께 먹는 밥상, 강렬한 맛, 발효 음식과 길거리 간식."], hanbok:["한복과 패션","전통의 실루엣과 현대적인 스타일의 영향."], festivals:["축제","계절의 기념일과 지역 행사, 문화 의식."], travel:["여행","도시와 자연, 궁궐, 카페, 시장과 문화 거리."] };
 
 const categoryMap = new Map(categories.map((category) => [category.id, category]));
 const postForm = document.querySelector("#post-form");
@@ -17,6 +22,7 @@ const postErrors = {
 };
 let stories = curatedStories.slice();
 let session = readSession();
+let language = "en";
 
 function readSession() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || null; } catch { return null; }
@@ -26,10 +32,10 @@ function saveSession(value) {
   try { value ? sessionStorage.setItem(SESSION_KEY, JSON.stringify(value)) : sessionStorage.removeItem(SESSION_KEY); } catch {}
 }
 function getBrowserStorage() { try { return window.localStorage; } catch { return null; } }
-function categoryLabel(id) { return categoryMap.get(id)?.title || id; }
+function categoryLabel(id) { return language === "ko" ? (categoryKo[id]?.[0] || id) : (categoryMap.get(id)?.title || id); }
 function formatDate(value) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "최근" : new Intl.DateTimeFormat("ko", { year: "numeric", month: "long", day: "numeric" }).format(date);
+  return Number.isNaN(date.getTime()) ? translations[language].recent : new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "long", day: "numeric" }).format(date);
 }
 function sortStories(items) { return items.slice().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)); }
 function storyCard(story, index = 0) {
@@ -39,8 +45,8 @@ function storyCard(story, index = 0) {
   const meta = document.createElement("div"); meta.className = "story-meta";
   const category = document.createElement("span"); category.textContent = categoryLabel(story.category);
   const readTime = document.createElement("span"); readTime.textContent = story.readTime || `${Math.max(2, Math.ceil(story.content.length / 90))} min`;
-  const title = document.createElement("h3"); title.textContent = story.title;
-  const content = document.createElement("p"); content.textContent = story.content;
+  const title = document.createElement("h3"); title.textContent = language === "ko" ? (story.titleKo || story.title) : story.title;
+  const content = document.createElement("p"); content.textContent = language === "ko" ? (story.contentKo || story.content) : story.content;
   const time = document.createElement("time"); time.dateTime = story.createdAt; time.textContent = formatDate(story.createdAt);
   meta.append(category, readTime); article.append(art, meta, title, content, time); return article;
 }
@@ -52,20 +58,29 @@ function renderStories() {
     const matches = ordered.filter((story) => ids.includes(story.category)).slice(0, 6);
     const grid = section.querySelector("[data-story-grid]");
     if (matches.length) grid.replaceChildren(...matches.map(storyCard));
-    else { const empty = document.createElement("p"); empty.className = "empty-stories"; empty.textContent = "이 테마의 이야기를 준비하고 있습니다."; grid.replaceChildren(empty); }
+    else { const empty = document.createElement("p"); empty.className = "empty-stories"; empty.textContent = translations[language].empty; grid.replaceChildren(empty); }
   });
 }
 function renderCategories() {
   const grid = document.querySelector("#category-grid");
+  grid.replaceChildren(); postCategory.replaceChildren(new Option(language === "ko" ? "테마 선택" : "Choose a theme", ""));
   categories.forEach((item) => {
     const card = document.createElement("a"); card.className = "category-card";
     card.href = ({ kpop: "#music", kdrama: "#screen", kfood: "#table" })[item.id] || "#lifestyle";
     const icon = document.createElement("b"); icon.textContent = item.icon;
-    const copy = document.createElement("div"); const strong = document.createElement("strong"); strong.textContent = item.title;
-    const summary = document.createElement("span"); summary.textContent = item.summary; copy.append(strong, document.createElement("br"), summary);
+    const copy = document.createElement("div"); const strong = document.createElement("strong"); strong.textContent = language === "ko" ? categoryKo[item.id][0] : item.title;
+    const summary = document.createElement("span"); summary.textContent = language === "ko" ? categoryKo[item.id][1] : item.summary; copy.append(strong, document.createElement("br"), summary);
     const arrow = document.createElement("b"); arrow.textContent = "→"; card.append(icon, copy, arrow); grid.append(card);
   });
   categories.forEach((item) => { const option = document.createElement("option"); option.value = item.id; option.textContent = item.title; postCategory.append(option); });
+}
+function setLanguage(nextLanguage) {
+  language = nextLanguage === "ko" ? "ko" : "en";
+  document.documentElement.lang = language;
+  document.querySelectorAll("[data-i18n]").forEach((element) => { element.innerHTML = translations[language][element.dataset.i18n]; });
+  document.querySelectorAll("[data-i18n-aria]").forEach((element) => { element.setAttribute("aria-label", translations[language][element.dataset.i18nAria]); });
+  document.querySelectorAll("[data-language]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.language === language)));
+  renderCategories(); renderStories();
 }
 function updateAdminView() {
   const signedIn = Boolean(session?.access_token);
@@ -109,4 +124,5 @@ document.querySelector("#admin-close").addEventListener("click", () => adminDial
 document.querySelector("#logout-button").addEventListener("click", () => { saveSession(null); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
 adminDialog.addEventListener("click", (event) => { if (event.target === adminDialog) adminDialog.close(); });
 
-renderCategories(); renderStories(); updateAdminView(); loadRemoteStories();
+document.querySelectorAll("[data-language]").forEach((button) => button.addEventListener("click", () => setLanguage(button.dataset.language)));
+setLanguage("en"); updateAdminView(); loadRemoteStories();

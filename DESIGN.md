@@ -67,6 +67,7 @@
 - Offline/slow network: local cache supplements curated content
 
 ## Content voice
+- Language policy: English is the primary/default language for international visitors; Korean is shown only after the visitor selects the Korean language tab.
 - Tone: concise, welcoming, informed, discovery-oriented
 - Terminology: use “story” or “guide” publicly and “post” only in administrator controls
 - Microcopy rules: explain the next action; avoid technical language in visitor-facing states
