@@ -49,6 +49,7 @@ Then open `http://localhost:8000`.
 ## Features
 
 - Editorial home with latest-story and themed K-culture shelves
+- Clickable story cards with dedicated, bilingual long-form reading pages
 - Music, drama, food, fashion, festival, and travel discovery sections
 - Curated starter stories with Supabase-backed administrator posts
 - Private administrator sign-in and publishing dialog

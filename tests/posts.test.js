@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const posts = require('../js/posts.js');
+const fs = require('node:fs');
+const vm = require('node:vm');
 
 const allowedCategories = ['kpop', 'kdrama', 'kfood'];
 
@@ -169,4 +171,25 @@ test('signInAdmin requests a password session', async () => {
     fetchMock
   );
   assert.equal(session.access_token, 'token');
+});
+
+test('every curated story has a linked bilingual long-form article', () => {
+  const context = { window: {} };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync('data/editorial.js', 'utf8'), context);
+  vm.runInContext(fs.readFileSync('data/articles.js', 'utf8'), context);
+
+  for (const story of context.window.KCULTURE_EDITORIAL) {
+    const article = context.window.KCULTURE_ARTICLES[story.id];
+    assert.ok(article, `missing article for ${story.id}`);
+    assert.ok(article.en.length >= 4, `English article is too short for ${story.id}`);
+    assert.ok(article.ko.length >= 4, `Korean article is too short for ${story.id}`);
+    assert.ok(article.en.join(' ').length > story.content.length * 3);
+    assert.ok(article.ko.join(' ').length > story.contentKo.length * 3);
+  }
+
+  const mainSource = fs.readFileSync('js/main.js', 'utf8');
+  assert.match(mainSource, /article\.html\?id=/);
+  assert.ok(fs.existsSync('article.html'));
+  assert.ok(fs.existsSync('js/article.js'));
 });

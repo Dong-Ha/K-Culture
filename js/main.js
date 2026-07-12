@@ -39,8 +39,10 @@ function formatDate(value) {
 }
 function sortStories(items) { return items.slice().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)); }
 function storyCard(story, index = 0) {
-  const article = document.createElement("article");
+  const article = document.createElement("a");
   article.className = "story-card";
+  article.href = `article.html?id=${encodeURIComponent(story.id)}&lang=${language}`;
+  article.setAttribute("aria-label", `${language === "ko" ? (story.titleKo || story.title) : story.title} — ${language === "ko" ? "글 읽기" : "Read story"}`);
   const art = document.createElement("div"); art.className = "story-art"; art.setAttribute("aria-hidden", "true"); art.dataset.theme = story.category;
   const meta = document.createElement("div"); meta.className = "story-meta";
   const category = document.createElement("span"); category.textContent = categoryLabel(story.category);
