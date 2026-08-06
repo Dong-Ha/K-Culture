@@ -3,6 +3,7 @@ const curatedStories = window.KCULTURE_EDITORIAL || [];
 const postUtils = window.KCulturePosts;
 const supabaseConfig = window.KCULTURE_SUPABASE;
 const SESSION_KEY = "kculture.adminSession";
+const ADMIN_LOGIN_DOMAIN = "igaogdhrdtmjxnyezjbp.supabase.co";
 const translations = {
   en: { skip:"Skip to content",navLabel:"Main navigation",languageLabel:"Language",navLatest:"Latest",navMusic:"Music",navScreen:"Screen",navFood:"Food",navLife:"Lifestyle",allThemes:"All themes",backToTop:"Back to top",heroTitle:"Discover",heroBody:"Explore Korean culture through a song, a scene, or a shared meal—and discover the context behind the Korean Wave.",readLatest:"Read the latest stories",latestTitle:"Fresh from Korea",latestBody:"The K-culture guides to read first.",musicTitle:"K-pop beyond the stage",musicBody:"New ways to understand the music, performance, and fandom.",screenTitle:"Reading Korea through K-drama",screenBody:"Meet contemporary Korea through characters, places, and soundtracks.",foodTitle:"K-food is made to be shared",foodBody:"Seasonal flavors, markets, and the culture of a shared table.",lifeTitle:"Wear, walk, and experience Korea",lifeBody:"A cultural journey through style, seasonal festivals, and cities.",themesTitle:"Find your way into K-culture",aboutTitle:"Go beyond consuming K-culture.<br>Start understanding it.",aboutBody:"This journal connects music, screen stories, food, and places so newcomers can explore Korean culture without losing the context.",admin:"Admin",empty:"More stories for this theme are coming soon.",recent:"Recent"},
   ko: { skip:"본문으로 건너뛰기",navLabel:"주요 메뉴",languageLabel:"언어",navLatest:"최신",navMusic:"음악",navScreen:"드라마",navFood:"푸드",navLife:"라이프",allThemes:"테마 전체",backToTop:"맨 위로 이동",heroTitle:"오늘의",heroBody:"노래 한 곡, 장면 하나, 한 끼의 음식에서 시작하는 한국 문화 이야기. 익숙한 한류를 더 깊고 넓게 탐험합니다.",readLatest:"최신 이야기 읽기",latestTitle:"새로 올라온 이야기",latestBody:"지금 가장 먼저 읽어볼 K-컬처 가이드입니다.",musicTitle:"K-pop, 무대 뒤의 문화",musicBody:"음악과 퍼포먼스, 팬덤을 이해하는 새로운 관점.",screenTitle:"K-드라마로 읽는 한국",screenBody:"인물과 공간, OST에 담긴 오늘의 한국을 만납니다.",foodTitle:"한식, 함께 먹는 이야기",foodBody:"계절의 맛과 시장, 함께 차리는 밥상의 문화.",lifeTitle:"입고, 걷고, 경험하는 한국",lifeBody:"스타일과 계절 축제, 도시를 잇는 문화 여행.",themesTitle:"관심사로 찾아보기",aboutTitle:"K-컬처를 소비하는 데서<br>이해하는 데까지.",aboutBody:"이 저널은 처음 한국 문화를 만나는 사람도 맥락을 놓치지 않도록 음악, 화면, 음식과 장소 사이의 연결을 기록합니다.",admin:"관리자",empty:"이 테마의 이야기를 준비하고 있습니다.",recent:"최근"}
@@ -22,6 +23,7 @@ const postErrors = {
 };
 let stories = curatedStories.slice();
 let session = readSession();
+let adminUser = null;
 let language = "en";
 
 function readSession() {
@@ -85,9 +87,9 @@ function setLanguage(nextLanguage) {
   renderCategories(); renderStories();
 }
 function updateAdminView() {
-  const signedIn = Boolean(session?.access_token);
+  const signedIn = Boolean(session?.access_token && adminUser);
   loginForm.hidden = signedIn; postForm.hidden = !signedIn;
-  document.querySelector("#admin-email").textContent = session?.user?.email || "관리자";
+  document.querySelector("#admin-email").textContent = adminUser?.user_metadata?.username || adminUser?.email || "관리자";
 }
 function setFormErrors(errors) {
   Object.entries(postErrors).forEach(([field, element]) => { element.textContent = errors[field] || ""; postForm.elements[field].setAttribute("aria-invalid", String(Boolean(errors[field]))); });
@@ -100,16 +102,51 @@ async function loadRemoteStories() {
     renderStories();
   } catch (error) { console.error(error); }
 }
+async function restoreAdminSession() {
+  const restoringAccessToken = session?.access_token;
+  if (!restoringAccessToken) return;
+
+  try {
+    const restoredUser = await postUtils.verifyAdminSession(supabaseConfig, restoringAccessToken);
+    if (session?.access_token !== restoringAccessToken) return;
+    adminUser = restoredUser;
+    saveSession({ ...session, user: restoredUser });
+  } catch {
+    if (session?.access_token !== restoringAccessToken) return;
+    adminUser = null;
+    saveSession(null);
+  }
+
+  updateAdminView();
+}
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault(); postStatus.textContent = "로그인 중...";
   const data = new FormData(loginForm);
+  const button = loginForm.querySelector('[type="submit"]');
+  button.disabled = true;
   try {
-    const result = await postUtils.signInAdmin(supabaseConfig, { email: data.get("email"), password: data.get("password") });
-    saveSession({ access_token: result.access_token, user: result.user }); loginForm.reset(); updateAdminView(); postStatus.textContent = "관리자로 로그인했습니다.";
-  } catch { postStatus.textContent = "로그인에 실패했습니다. 관리자 계정을 확인하세요."; }
+    const username = String(data.get("username") || "").trim().toLowerCase();
+    const result = await postUtils.signInAdmin(supabaseConfig, { email: `${username}@${ADMIN_LOGIN_DOMAIN}`, password: data.get("password") });
+    adminUser = await postUtils.verifyAdminSession(supabaseConfig, result.access_token);
+    saveSession({ access_token: result.access_token, user: adminUser }); loginForm.reset(); updateAdminView(); postStatus.textContent = "관리자로 로그인했습니다.";
+  } catch {
+    adminUser = null;
+    saveSession(null);
+    updateAdminView();
+    postStatus.textContent = "로그인에 실패했습니다. 관리자 계정과 권한을 확인하세요.";
+  } finally {
+    button.disabled = false;
+  }
 });
 postForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!session?.access_token || !adminUser) {
+    adminUser = null;
+    saveSession(null);
+    updateAdminView();
+    postStatus.textContent = "관리자 세션을 다시 확인해 주세요.";
+    return;
+  }
   const data = new FormData(postForm);
   const result = postUtils.createPost({ title: data.get("title"), category: data.get("category"), content: data.get("content") }, undefined, categories.map((item) => item.id));
   setFormErrors(result.errors);
@@ -123,8 +160,8 @@ postForm.addEventListener("submit", async (event) => {
 });
 document.querySelector("#admin-open").addEventListener("click", () => { updateAdminView(); adminDialog.showModal(); });
 document.querySelector("#admin-close").addEventListener("click", () => adminDialog.close());
-document.querySelector("#logout-button").addEventListener("click", () => { saveSession(null); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
+document.querySelector("#logout-button").addEventListener("click", () => { adminUser = null; saveSession(null); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
 adminDialog.addEventListener("click", (event) => { if (event.target === adminDialog) adminDialog.close(); });
 
 document.querySelectorAll("[data-language]").forEach((button) => button.addEventListener("click", () => setLanguage(button.dataset.language)));
-setLanguage("en"); updateAdminView(); loadRemoteStories();
+setLanguage("en"); updateAdminView(); restoreAdminSession(); loadRemoteStories();

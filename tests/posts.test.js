@@ -126,7 +126,7 @@ test('fetchRemotePosts maps Supabase rows to browser posts', async () => {
 
 test('publishRemotePost sends only writable fields and maps the response', async () => {
   const fetchMock = async (url, options) => {
-    assert.equal(url, 'https://example.supabase.co/rest/v1/posts');
+    assert.equal(url, 'https://example.supabase.co/rest/v1/posts?select=id,title,category,content,created_at');
     assert.equal(options.method, 'POST');
     assert.equal(options.headers.Prefer, 'return=representation');
     assert.equal(options.headers.Authorization, 'Bearer admin-access-token');
@@ -158,6 +158,24 @@ test('publishRemotePost sends only writable fields and maps the response', async
   assert.equal(result.createdAt, '2026-07-11T01:00:00.000Z');
 });
 
+test('publishRemotePost refuses to send a request without an access token', async () => {
+  let requested = false;
+
+  await assert.rejects(
+    posts.publishRemotePost(
+      { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+      { title: 'Food note', category: 'kfood', content: 'Try a shared banchan table.' },
+      '',
+      async () => {
+        requested = true;
+      }
+    ),
+    /administrator session/i
+  );
+
+  assert.equal(requested, false);
+});
+
 test('signInAdmin requests a password session', async () => {
   const fetchMock = async (url, options) => {
     assert.equal(url, 'https://example.supabase.co/auth/v1/token?grant_type=password');
@@ -171,6 +189,113 @@ test('signInAdmin requests a password session', async () => {
     fetchMock
   );
   assert.equal(session.access_token, 'token');
+});
+
+test('verifyAdminSession confirms both the auth user and administrator membership', async () => {
+  const requests = [];
+  const fetchMock = async (url, options) => {
+    requests.push({ url, options });
+
+    if (url.endsWith('/auth/v1/user')) {
+      return {
+        ok: true,
+        json: async () => ({ id: 'admin-user-id', email: 'admin@example.com' })
+      };
+    }
+
+    assert.equal(url, 'https://example.supabase.co/rest/v1/rpc/is_admin');
+    assert.equal(options.method, 'POST');
+    return { ok: true, json: async () => true };
+  };
+
+  const user = await posts.verifyAdminSession(
+    { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+    'admin-access-token',
+    fetchMock
+  );
+
+  assert.deepEqual(user, { id: 'admin-user-id', email: 'admin@example.com' });
+  assert.equal(requests.length, 2);
+  assert.equal(requests.every(({ options }) => options.headers.Authorization === 'Bearer admin-access-token'), true);
+});
+
+test('verifyAdminSession rejects authenticated users without administrator membership', async () => {
+  const fetchMock = async (url) => {
+    if (url.endsWith('/auth/v1/user')) {
+      return { ok: true, json: async () => ({ id: 'regular-user-id' }) };
+    }
+
+    return { ok: true, json: async () => false };
+  };
+
+  await assert.rejects(
+    posts.verifyAdminSession(
+      { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+      'regular-access-token',
+      fetchMock
+    ),
+    /administrator privileges/i
+  );
+});
+
+test('verifyAdminSession rejects missing tokens without making a request', async () => {
+  let requested = false;
+
+  await assert.rejects(
+    posts.verifyAdminSession(
+      { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+      '',
+      async () => {
+        requested = true;
+      }
+    ),
+    /administrator session/i
+  );
+
+  assert.equal(requested, false);
+});
+
+test('session restoration only applies results to the token it started with', () => {
+  const mainSource = fs.readFileSync('js/main.js', 'utf8');
+  const restoreSource = mainSource.match(/async function restoreAdminSession\(\) \{[\s\S]+?\n\}/)?.[0] || '';
+
+  assert.match(restoreSource, /const restoringAccessToken = session\?\.access_token/);
+  assert.match(restoreSource, /verifyAdminSession\(supabaseConfig, restoringAccessToken\)/);
+  assert.equal(
+    (restoreSource.match(/session\?\.access_token !== restoringAccessToken/g) || []).length,
+    2
+  );
+});
+
+test('Supabase policies keep membership and server-owned post fields private', () => {
+  for (const migration of ['supabase/schema.sql', 'supabase/admin-only.sql']) {
+    const sql = fs.readFileSync(migration, 'utf8');
+
+    assert.match(sql, /create or replace function private\.is_admin\(\)[\s\S]+security definer/i);
+    assert.match(sql, /create or replace function public\.is_admin\(\)[\s\S]+security invoker/i);
+    assert.match(sql, /set search_path = ''/i);
+    assert.match(sql, /alter table public\.posts enable row level security/i);
+    assert.match(sql, /create policy "No direct access to admin membership"[\s\S]+using \(false\)/i);
+    assert.match(sql, /from pg_policies[\s\S]+and cmd = 'INSERT'/i);
+    assert.match(sql, /with check \(\(select private\.is_admin\(\)\) and created_by = \(select auth\.uid\(\)\)\)/i);
+    assert.match(sql, /create index if not exists posts_created_by_idx\s+on public\.posts \(created_by\)/i);
+    assert.match(sql, /revoke all privileges on table public\.admins from public, anon, authenticated/i);
+    assert.match(sql, /grant insert \(title, category, content\)\s+on table public\.posts to authenticated/i);
+    assert.doesNotMatch(sql, /grant insert on table public\.posts to authenticated/i);
+  }
+});
+
+test('every page CSP limits scripts and API connections to approved origins', () => {
+  for (const page of ['index.html', 'article.html']) {
+    const html = fs.readFileSync(page, 'utf8');
+    const policy = html.match(/Content-Security-Policy" content="([^"]+)"/)?.[1] || '';
+
+    assert.match(policy, /default-src 'self'/);
+    assert.match(policy, /script-src 'self'/);
+    assert.match(policy, /connect-src 'self' https:\/\/igaogdhrdtmjxnyezjbp\.supabase\.co/);
+    assert.match(policy, /object-src 'none'/);
+    assert.doesNotMatch(policy, /unsafe-inline|unsafe-eval/);
+  }
 });
 
 test('every curated story has a linked bilingual long-form article', () => {

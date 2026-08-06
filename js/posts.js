@@ -151,9 +151,17 @@
   function getSupabaseHeaders(publishableKey, extraHeaders, accessToken) {
     return {
       apikey: publishableKey,
-      Authorization: `Bearer ${accessToken || publishableKey}`,
-      ...extraHeaders
+      ...extraHeaders,
+      Authorization: `Bearer ${accessToken || publishableKey}`
     };
+  }
+
+  function requireAccessToken(accessToken) {
+    if (typeof accessToken !== "string" || !accessToken.trim()) {
+      throw new Error("A valid administrator session is required.");
+    }
+
+    return accessToken;
   }
 
   function toRemotePost(post) {
@@ -191,12 +199,13 @@
 
   async function publishRemotePost(config, post, accessToken, fetchImpl) {
     const request = fetchImpl || global.fetch;
-    const response = await request(`${config.url}/rest/v1/posts`, {
+    const token = requireAccessToken(accessToken);
+    const response = await request(`${config.url}/rest/v1/posts?select=id,title,category,content,created_at`, {
       method: "POST",
       headers: getSupabaseHeaders(config.publishableKey, {
         "Content-Type": "application/json",
         Prefer: "return=representation"
-      }, accessToken),
+      }, token),
       body: JSON.stringify(toRemotePost(post))
     });
 
@@ -223,6 +232,32 @@
     return response.json();
   }
 
+  async function verifyAdminSession(config, accessToken, fetchImpl) {
+    const request = fetchImpl || global.fetch;
+    const token = requireAccessToken(accessToken);
+    const headers = getSupabaseHeaders(config.publishableKey, undefined, token);
+    const userResponse = await request(`${config.url}/auth/v1/user`, { headers });
+
+    if (!userResponse.ok) {
+      throw new Error("The administrator session is invalid or expired.");
+    }
+
+    const user = await userResponse.json();
+    const membershipResponse = await request(`${config.url}/rest/v1/rpc/is_admin`, {
+      method: "POST",
+      headers: getSupabaseHeaders(config.publishableKey, {
+        "Content-Type": "application/json"
+      }, token),
+      body: "{}"
+    });
+
+    if (!membershipResponse.ok || await membershipResponse.json() !== true) {
+      throw new Error("This account does not have administrator privileges.");
+    }
+
+    return user;
+  }
+
   const api = {
     STORAGE_KEY,
     MAX_POSTS,
@@ -240,11 +275,13 @@
     loadPosts,
     savePosts,
     getSupabaseHeaders,
+    requireAccessToken,
     toRemotePost,
     fromRemotePost,
     fetchRemotePosts,
     publishRemotePost,
-    signInAdmin
+    signInAdmin,
+    verifyAdminSession
   };
 
   global.KCulturePosts = api;
