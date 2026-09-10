@@ -52,7 +52,8 @@ Then open `http://localhost:8000`.
 - Clickable story cards with dedicated, bilingual long-form reading pages
 - Music, drama, food, fashion, festival, and travel discovery sections
 - Curated starter stories with Supabase-backed administrator posts
-- Private administrator sign-in and publishing dialog
+- Private administrator studio for publishing and editing stories
+- Formatting toolbar, live preview, and 5,000-character long-form posts
 - Responsive layout for mobile and desktop
 - Basic keyboard focus and accessibility-friendly button semantics
 
@@ -84,7 +85,8 @@ If the original public-post schema was already installed, run
 `supabase/admin-only.sql` instead of rerunning the full schema. Run the complete file:
 it removes anonymous and broad table permissions, exposes only the public post columns,
 keeps `id`, `created_at`, and `created_by` server-controlled, and restricts publishing
-to user UUIDs registered in `public.admins`.
+and editing to user UUIDs registered in `public.admins`. Existing installations must
+run the updated file once to enable the longer body format and administrator UPDATE policy.
 
 The publishable key in `js/supabase-config.js` is intended for browser use. Access is
 restricted by the row-level security policies in `supabase/schema.sql`; never place a

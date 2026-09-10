@@ -16,15 +16,24 @@ const loginForm = document.querySelector("#login-form");
 const postCategory = document.querySelector("#post-category");
 const postStatus = document.querySelector("#post-status");
 const adminDialog = document.querySelector("#admin-dialog");
+const adminWorkspace = document.querySelector("#admin-workspace");
+const adminPostList = document.querySelector("#admin-post-list");
+const postContent = document.querySelector("#post-content");
+const postPreview = document.querySelector("#post-preview");
+const postCharacterCount = document.querySelector("#post-character-count");
+const postSubmitButton = document.querySelector("#post-submit-button");
+const cancelEditButton = document.querySelector("#cancel-edit-button");
 const postErrors = {
   title: document.querySelector("#post-title-error"),
   category: document.querySelector("#post-category-error"),
   content: document.querySelector("#post-content-error")
 };
 let stories = curatedStories.slice();
+let remoteStories = [];
 let session = readSession();
 let adminUser = null;
 let language = "en";
+let editingPostId = null;
 
 function readSession() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || null; } catch { return null; }
@@ -50,7 +59,7 @@ function storyCard(story, index = 0) {
   const category = document.createElement("span"); category.textContent = categoryLabel(story.category);
   const readTime = document.createElement("span"); readTime.textContent = story.readTime || `${Math.max(2, Math.ceil(story.content.length / 90))} min`;
   const title = document.createElement("h3"); title.textContent = language === "ko" ? (story.titleKo || story.title) : story.title;
-  const content = document.createElement("p"); content.textContent = language === "ko" ? (story.contentKo || story.content) : story.content;
+  const content = document.createElement("p"); content.textContent = postUtils.getPostExcerpt(language === "ko" ? (story.contentKo || story.content) : story.content);
   const time = document.createElement("time"); time.dateTime = story.createdAt; time.textContent = formatDate(story.createdAt);
   meta.append(category, readTime); article.append(art, meta, title, content, time); return article;
 }
@@ -67,6 +76,7 @@ function renderStories() {
 }
 function renderCategories() {
   const grid = document.querySelector("#category-grid");
+  const selectedCategory = postCategory.value;
   grid.replaceChildren(); postCategory.replaceChildren(new Option(language === "ko" ? "테마 선택" : "Choose a theme", ""));
   categories.forEach((item) => {
     const card = document.createElement("a"); card.className = "category-card";
@@ -77,6 +87,7 @@ function renderCategories() {
     const arrow = document.createElement("b"); arrow.textContent = "→"; card.append(icon, copy, arrow); grid.append(card);
   });
   categories.forEach((item) => { const option = document.createElement("option"); option.value = item.id; option.textContent = item.title; postCategory.append(option); });
+  if (categoryMap.has(selectedCategory)) postCategory.value = selectedCategory;
 }
 function setLanguage(nextLanguage) {
   language = nextLanguage === "ko" ? "ko" : "en";
@@ -88,18 +99,65 @@ function setLanguage(nextLanguage) {
 }
 function updateAdminView() {
   const signedIn = Boolean(session?.access_token && adminUser);
-  loginForm.hidden = signedIn; postForm.hidden = !signedIn;
+  loginForm.hidden = signedIn; adminWorkspace.hidden = !signedIn;
   document.querySelector("#admin-email").textContent = adminUser?.user_metadata?.username || adminUser?.email || "관리자";
+  if (signedIn) renderAdminPosts();
 }
 function setFormErrors(errors) {
   Object.entries(postErrors).forEach(([field, element]) => { element.textContent = errors[field] || ""; postForm.elements[field].setAttribute("aria-invalid", String(Boolean(errors[field]))); });
+}
+function syncStories() {
+  stories = [...remoteStories, ...curatedStories.filter((local) => !remoteStories.some((item) => item.id === local.id))];
+}
+function renderAdminPosts() {
+  if (!adminPostList) return;
+  if (!remoteStories.length) {
+    const empty = document.createElement("p"); empty.className = "admin-empty"; empty.textContent = "No published stories yet."; adminPostList.replaceChildren(empty); return;
+  }
+  adminPostList.replaceChildren(...sortStories(remoteStories).map((story) => {
+    const button = document.createElement("button"); button.type = "button"; button.className = "admin-post-item"; button.dataset.postId = story.id;
+    if (story.id === editingPostId) button.setAttribute("aria-current", "true");
+    const title = document.createElement("strong"); title.textContent = story.title;
+    const meta = document.createElement("span"); meta.textContent = `${categoryLabel(story.category)} · ${formatDate(story.createdAt)}`;
+    button.append(title, meta); return button;
+  }));
+}
+function renderEditorPreview() {
+  const content = postContent.value;
+  postCharacterCount.textContent = `${content.length} / ${postUtils.CONTENT_MAX_LENGTH}`;
+  if (!content.trim()) {
+    const empty = document.createElement("p"); empty.textContent = "Start writing to preview your story."; postPreview.replaceChildren(empty); return;
+  }
+  postUtils.renderPostContent(postPreview, content);
+}
+function resetEditor() {
+  editingPostId = null;
+  postForm.reset();
+  setFormErrors({});
+  document.querySelector("#editor-heading").textContent = "Write a new story";
+  postSubmitButton.textContent = "Publish story";
+  cancelEditButton.hidden = true;
+  renderEditorPreview(); renderAdminPosts();
+}
+function beginEdit(postId) {
+  const story = remoteStories.find((item) => item.id === postId);
+  if (!story) return;
+  editingPostId = story.id;
+  postForm.elements.title.value = story.title;
+  postForm.elements.category.value = story.category;
+  postForm.elements.content.value = story.content;
+  setFormErrors({});
+  document.querySelector("#editor-heading").textContent = "Edit published story";
+  postSubmitButton.textContent = "Save changes";
+  cancelEditButton.hidden = false;
+  renderEditorPreview(); renderAdminPosts();
+  postForm.elements.title.focus();
 }
 async function loadRemoteStories() {
   try {
     const remote = await postUtils.fetchRemotePosts(supabaseConfig);
     postUtils.savePosts(getBrowserStorage(), remote);
-    stories = [...remote, ...curatedStories.filter((local) => !remote.some((item) => item.id === local.id))];
-    renderStories();
+    remoteStories = remote; syncStories(); renderStories(); renderAdminPosts();
   } catch (error) { console.error(error); }
 }
 async function restoreAdminSession() {
@@ -148,20 +206,39 @@ postForm.addEventListener("submit", async (event) => {
     return;
   }
   const data = new FormData(postForm);
-  const result = postUtils.createPost({ title: data.get("title"), category: data.get("category"), content: data.get("content") }, undefined, categories.map((item) => item.id));
+  const result = postUtils.validatePost({ title: data.get("title"), category: data.get("category"), content: data.get("content") }, categories.map((item) => item.id));
   setFormErrors(result.errors);
   if (!result.isValid) { postStatus.textContent = "입력 내용을 확인하세요."; return; }
-  const button = postForm.querySelector('[type="submit"]'); button.disabled = true; postStatus.textContent = "발행 중...";
+  postSubmitButton.disabled = true; postStatus.textContent = editingPostId ? "수정 내용을 저장하는 중..." : "발행 중...";
   try {
-    const published = await postUtils.publishRemotePost(supabaseConfig, result.post, session.access_token);
-    stories = [published, ...stories]; postForm.reset(); renderStories(); postStatus.textContent = "이야기를 발행했습니다.";
-  } catch { postStatus.textContent = "발행하지 못했습니다. 관리자 권한과 세션을 확인하세요."; }
-  finally { button.disabled = false; }
+    if (editingPostId) {
+      const updated = await postUtils.updateRemotePost(supabaseConfig, editingPostId, result.post, session.access_token);
+      remoteStories = remoteStories.map((story) => story.id === updated.id ? updated : story);
+      syncStories(); resetEditor(); renderStories(); postStatus.textContent = "수정 내용을 저장했습니다.";
+    } else {
+      const published = await postUtils.publishRemotePost(supabaseConfig, result.post, session.access_token);
+      remoteStories = [published, ...remoteStories]; syncStories(); resetEditor(); renderStories(); postStatus.textContent = "이야기를 발행했습니다.";
+    }
+  } catch { postStatus.textContent = editingPostId ? "수정하지 못했습니다. 관리자 권한과 세션을 확인하세요." : "발행하지 못했습니다. 관리자 권한과 세션을 확인하세요."; }
+  finally { postSubmitButton.disabled = false; }
 });
+postContent.addEventListener("input", renderEditorPreview);
+postForm.querySelector(".editor-toolbar").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-editor-action]");
+  if (!button) return;
+  const edit = postUtils.applyEditorAction(postContent.value, postContent.selectionStart, postContent.selectionEnd, button.dataset.editorAction);
+  postContent.value = edit.value; postContent.focus(); postContent.setSelectionRange(edit.selectionStart, edit.selectionEnd); renderEditorPreview();
+});
+adminPostList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-post-id]");
+  if (button) beginEdit(button.dataset.postId);
+});
+document.querySelector("#new-post-button").addEventListener("click", () => { resetEditor(); postForm.elements.title.focus(); });
+cancelEditButton.addEventListener("click", resetEditor);
 document.querySelector("#admin-open").addEventListener("click", () => { updateAdminView(); adminDialog.showModal(); });
 document.querySelector("#admin-close").addEventListener("click", () => adminDialog.close());
-document.querySelector("#logout-button").addEventListener("click", () => { adminUser = null; saveSession(null); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
+document.querySelector("#logout-button").addEventListener("click", () => { adminUser = null; saveSession(null); resetEditor(); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
 adminDialog.addEventListener("click", (event) => { if (event.target === adminDialog) adminDialog.close(); });
 
 document.querySelectorAll("[data-language]").forEach((button) => button.addEventListener("click", () => setLanguage(button.dataset.language)));
-setLanguage("en"); updateAdminView(); restoreAdminSession(); loadRemoteStories();
+setLanguage("en"); renderEditorPreview(); updateAdminView(); restoreAdminSession(); loadRemoteStories();

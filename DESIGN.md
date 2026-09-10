@@ -2,8 +2,8 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-07-11
-- Primary product surfaces: editorial home, themed article collections, administrator sign-in and publishing panel
+- Last refreshed: 2026-09-10
+- Primary product surfaces: editorial home, themed article collections, administrator sign-in and editing studio
 - Evidence reviewed: `index.html`, `css/styles.css`, `data/culture.js`, `js/main.js`, and the navigation/category/card hierarchy of the user-provided Greenleaf reference site
 
 ## Brand
@@ -18,7 +18,7 @@
 
 ## Personas and jobs
 - Primary personas: international K-culture beginners and the site administrator
-- User jobs: browse recent stories, choose a theme, understand what to explore next; securely publish a short editorial note
+- User jobs: browse recent stories, choose a theme, understand what to explore next; securely write, preview, publish, and revise an editorial story
 - Key contexts of use: mobile discovery and desktop reading; occasional admin publishing
 
 ## Information architecture
@@ -42,8 +42,8 @@
 
 ## Components
 - Existing components to reuse: category data, post validation, Supabase post mapping, semantic buttons and status regions
-- New/changed components: editorial story card, theme shelf, latest lead card, admin dialog, authenticated publish form
-- Variants and states: lead/standard/compact story cards; loading/empty/error theme shelves; signed-out/signed-in admin dialog
+- New/changed components: editorial story card, theme shelf, latest lead card, admin dialog, authenticated story manager, formatting toolbar, live preview
+- Variants and states: lead/standard/compact story cards; loading/empty/error theme shelves; signed-out/signed-in admin dialog; create/edit editor modes
 - Token/component ownership: CSS custom properties in `css/styles.css`; content data in `data/culture.js` and `data/editorial.js`
 
 ## Accessibility
@@ -62,8 +62,8 @@
 - Loading: theme area announces that stories are loading
 - Empty: curated starter stories remain visible when Supabase has no rows
 - Error: cached/curated content remains and status explains remote unavailability
-- Success: newly published story is inserted and shelves rerender
-- Disabled: publish button disabled during network requests
+- Success: newly published or edited stories replace the matching card and shelves rerender without duplication
+- Disabled: publish/save button disabled during network requests
 - Offline/slow network: local cache supplements curated content
 
 ## Content voice

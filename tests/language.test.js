@@ -41,3 +41,16 @@ test('each editorial content section has a thin back-to-top control', () => {
   assert.match(html, /data-i18n-aria="backToTop"/);
   assert.match(styles, /\.section-top-link/);
 });
+
+test('administrator studio exposes editing tools only inside the authenticated workspace', () => {
+  assert.match(html, /id="admin-workspace"[^>]*hidden/);
+  assert.match(html, /id="admin-post-list"/);
+  assert.match(html, /data-editor-action="bold"/);
+  assert.match(html, /data-editor-action="link"/);
+  assert.match(html, /id="post-preview"/);
+  assert.match(html, /id="cancel-edit-button"/);
+  assert.match(main, /postUtils\.updateRemotePost/);
+  assert.match(main, /remoteStories\.map\(\(story\) => story\.id === updated\.id \? updated : story\)/);
+  assert.match(styles, /\.admin-studio-grid/);
+  assert.match(styles, /\.editor-toolbar/);
+});

@@ -45,6 +45,58 @@ test('createPost normalizes content and creates a stable post shape', () => {
   });
 });
 
+test('normalizePost preserves intentional paragraphs for long-form editing', () => {
+  const normalized = posts.normalizePost({
+    title: '  Seoul   note ',
+    category: ' travel ',
+    content: '  First paragraph.  \r\n\r\n  Second **bold** paragraph.  '
+  });
+
+  assert.deepEqual(normalized, {
+    title: 'Seoul note',
+    category: 'travel',
+    content: 'First paragraph.\n\nSecond **bold** paragraph.'
+  });
+});
+
+test('editor actions wrap selections without interpreting user HTML', () => {
+  assert.deepEqual(posts.applyEditorAction('K-culture', 0, 1, 'bold'), {
+    value: '**K**-culture',
+    selectionStart: 2,
+    selectionEnd: 3
+  });
+  assert.equal(posts.applyEditorAction('one\ntwo', 0, 7, 'list').value, '- one\n- two');
+  assert.equal(posts.getPostExcerpt('## Seoul\n\nA **careful** [guide](https://example.com).'), 'Seoul A careful guide.');
+});
+
+test('renderPostContent builds safe formatting nodes without parsing arbitrary HTML', () => {
+  class FakeNode {
+    constructor(tagName, textContent = '') { this.tagName = tagName; this.textContent = textContent; this.children = []; }
+    append(...children) { this.children.push(...children); }
+    replaceChildren(...children) { this.children = children; }
+  }
+  const documentRef = {
+    createElement: (tagName) => new FakeNode(tagName),
+    createTextNode: (text) => new FakeNode('#text', text)
+  };
+  const container = new FakeNode('div');
+
+  posts.renderPostContent(
+    container,
+    '## Heading\n- first\n- **second**\n<script>alert(1)</script>\n[Safe](https://example.com) [Unsafe](javascript:alert(1))',
+    documentRef
+  );
+
+  assert.deepEqual(container.children.map((node) => node.tagName), ['h3', 'ul', 'p', 'p']);
+  const allNodes = [];
+  const visit = (node) => { allNodes.push(node); node.children.forEach(visit); };
+  container.children.forEach(visit);
+  assert.equal(allNodes.some((node) => node.tagName === 'script'), false);
+  assert.equal(allNodes.filter((node) => node.tagName === 'a').length, 1);
+  assert.equal(allNodes.find((node) => node.tagName === 'a').href, 'https://example.com');
+  assert.equal(allNodes.some((node) => node.textContent.includes('<script>')), true);
+});
+
 test('safeParsePosts falls back to default posts for invalid storage', () => {
   assert.deepEqual(posts.safeParsePosts('not json', allowedCategories), posts.DEFAULT_POSTS);
   assert.deepEqual(posts.safeParsePosts('{"bad":true}', allowedCategories), posts.DEFAULT_POSTS);
@@ -176,6 +228,56 @@ test('publishRemotePost refuses to send a request without an access token', asyn
   assert.equal(requested, false);
 });
 
+test('updateRemotePost patches only editable fields and maps the response', async () => {
+  const fetchMock = async (url, options) => {
+    assert.equal(url, 'https://example.supabase.co/rest/v1/posts?id=eq.8&select=id,title,category,content,created_at');
+    assert.equal(options.method, 'PATCH');
+    assert.equal(options.headers.Authorization, 'Bearer admin-access-token');
+    assert.equal(options.headers.Prefer, 'return=representation');
+    assert.deepEqual(JSON.parse(options.body), {
+      title: 'Updated food note',
+      category: 'kfood',
+      content: 'A revised shared banchan guide.'
+    });
+    return {
+      ok: true,
+      json: async () => [{
+        id: 8,
+        title: 'Updated food note',
+        category: 'kfood',
+        content: 'A revised shared banchan guide.',
+        created_at: '2026-07-11T01:00:00.000Z'
+      }]
+    };
+  };
+
+  const result = await posts.updateRemotePost(
+    { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+    '8',
+    { title: 'Updated food note', category: 'kfood', content: 'A revised shared banchan guide.', created_by: 'blocked' },
+    'admin-access-token',
+    fetchMock
+  );
+
+  assert.equal(result.id, '8');
+  assert.equal(result.title, 'Updated food note');
+});
+
+test('updateRemotePost refuses edits without an administrator token', async () => {
+  let requested = false;
+  await assert.rejects(
+    posts.updateRemotePost(
+      { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+      '8',
+      { title: 'Updated', category: 'kfood', content: 'Long enough content.' },
+      '',
+      async () => { requested = true; }
+    ),
+    /administrator session/i
+  );
+  assert.equal(requested, false);
+});
+
 test('signInAdmin requests a password session', async () => {
   const fetchMock = async (url, options) => {
     assert.equal(url, 'https://example.supabase.co/auth/v1/token?grant_type=password');
@@ -276,11 +378,14 @@ test('Supabase policies keep membership and server-owned post fields private', (
     assert.match(sql, /set search_path = ''/i);
     assert.match(sql, /alter table public\.posts enable row level security/i);
     assert.match(sql, /create policy "No direct access to admin membership"[\s\S]+using \(false\)/i);
-    assert.match(sql, /from pg_policies[\s\S]+and cmd = 'INSERT'/i);
+    assert.match(sql, /from pg_policies[\s\S]+and cmd in \('INSERT', 'UPDATE'\)/i);
     assert.match(sql, /with check \(\(select private\.is_admin\(\)\) and created_by = \(select auth\.uid\(\)\)\)/i);
+    assert.match(sql, /create policy "Administrators can update posts"[\s\S]+for update[\s\S]+using \(\(select private\.is_admin\(\)\)\)[\s\S]+with check \(\(select private\.is_admin\(\)\)\)/i);
     assert.match(sql, /create index if not exists posts_created_by_idx\s+on public\.posts \(created_by\)/i);
     assert.match(sql, /revoke all privileges on table public\.admins from public, anon, authenticated/i);
     assert.match(sql, /grant insert \(title, category, content\)\s+on table public\.posts to authenticated/i);
+    assert.match(sql, /grant update \(title, category, content\)\s+on table public\.posts to authenticated/i);
+    assert.match(sql, /posts_content_length[\s\S]+between 10 and 5000/i);
     assert.doesNotMatch(sql, /grant insert on table public\.posts to authenticated/i);
   }
 });

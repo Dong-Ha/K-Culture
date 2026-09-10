@@ -11,3 +11,6 @@
 
 # Local Python/pipx environments
 .local/
+
+# Local Graphify analysis output
+graphify-out/

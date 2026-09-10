@@ -22,8 +22,9 @@
     document.querySelector("[data-back-label]").textContent = language === "ko" ? "모든 이야기" : "All stories";
     if (!story) { document.querySelector("#article-missing").hidden = false; return; }
     const title = language === "ko" ? (story.titleKo || story.title) : story.title;
-    const deck = language === "ko" ? (story.contentKo || story.content) : story.content;
-    const paragraphs = details[story.id]?.[language] || [deck];
+    const content = language === "ko" ? (story.contentKo || story.content) : story.content;
+    const deck = details[story.id] ? content : window.KCulturePosts.getPostExcerpt(content, 220);
+    const paragraphs = details[story.id]?.[language];
     document.title = `${title} | K-Culture Journal`;
     document.querySelector('meta[name="description"]').content = deck;
     document.querySelector("#article-category").textContent = categoryLabel(story.category);
@@ -31,9 +32,12 @@
     document.querySelector("#article-deck").textContent = deck;
     document.querySelector("#article-date").dateTime = story.createdAt;
     document.querySelector("#article-date").textContent = formatDate(story.createdAt);
-    document.querySelector("#article-read-time").textContent = story.readTime || (language === "ko" ? "2분 읽기" : "2 min read");
+    const minutes = Math.max(2, Math.ceil(window.KCulturePosts.getPostExcerpt(content, 10000).length / 500));
+    document.querySelector("#article-read-time").textContent = story.readTime || (language === "ko" ? `${minutes}분 읽기` : `${minutes} min read`);
     document.querySelector("#article-art").dataset.theme = story.category;
-    document.querySelector("#article-body").replaceChildren(...paragraphs.map((text) => { const p = document.createElement("p"); p.textContent = text; return p; }));
+    const body = document.querySelector("#article-body");
+    if (paragraphs) body.replaceChildren(...paragraphs.map((text) => { const p = document.createElement("p"); p.textContent = text; return p; }));
+    else window.KCulturePosts.renderPostContent(body, content);
     document.querySelector("#article-content").hidden = false;
   }
 
