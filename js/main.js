@@ -23,6 +23,7 @@ const postPreview = document.querySelector("#post-preview");
 const postCharacterCount = document.querySelector("#post-character-count");
 const postSubmitButton = document.querySelector("#post-submit-button");
 const cancelEditButton = document.querySelector("#cancel-edit-button");
+const draftStatus = document.querySelector("#draft-status");
 const postErrors = {
   title: document.querySelector("#post-title-error"),
   category: document.querySelector("#post-category-error"),
@@ -34,6 +35,56 @@ let session = readSession();
 let adminUser = null;
 let language = "en";
 let editingPostId = null;
+let isSaving = false;
+let previewTimer;
+let storyRevision = 0;
+const memoryDrafts = new Map();
+
+function draftKey() {
+  return `kculture.draft.${adminUser?.id}.${editingPostId || "new"}`;
+}
+function saveEditorDraft() {
+  if (!adminUser || isSaving) return;
+  const draft = { title: postForm.elements.title.value, category: postCategory.value, content: postContent.value };
+  const hasContent = Boolean(draft.title || draft.category || draft.content);
+  if (hasContent) memoryDrafts.set(draftKey(), draft);
+  else memoryDrafts.delete(draftKey());
+  try {
+    if (hasContent) sessionStorage.setItem(draftKey(), JSON.stringify(draft));
+    else sessionStorage.removeItem(draftKey());
+    draftStatus.textContent = "Draft saved in this tab. It can be recovered after a reload.";
+  } catch {
+    draftStatus.textContent = "Draft storage is unavailable. Keep this tab open until you publish.";
+  }
+}
+function restoreEditorDraft() {
+  if (!adminUser) return;
+  let draft = memoryDrafts.get(draftKey());
+  if (!draft) {
+    try { draft = JSON.parse(sessionStorage.getItem(draftKey())); } catch {}
+  }
+  if (!draft || ![draft.title, draft.category, draft.content].every((value) => typeof value === "string")) return;
+  postForm.elements.title.value = draft.title;
+  postCategory.value = categoryMap.has(draft.category) ? draft.category : "";
+  postContent.value = draft.content;
+  try {
+    if (sessionStorage.getItem(draftKey())) draftStatus.textContent = "Recovered your draft from this tab.";
+    else draftStatus.textContent = "Recovered your draft. Keep this tab open until you publish.";
+  } catch { draftStatus.textContent = "Recovered your draft. Keep this tab open until you publish."; }
+}
+function removeEditorDraft() {
+  memoryDrafts.delete(draftKey());
+  try { sessionStorage.removeItem(draftKey()); } catch {}
+  draftStatus.textContent = "";
+}
+function setEditorBusy(busy) {
+  isSaving = busy;
+  postForm.setAttribute("aria-busy", String(busy));
+  for (const control of postForm.elements) control.disabled = busy;
+  adminPostList.querySelectorAll("button").forEach((button) => { button.disabled = busy; });
+  document.querySelector("#new-post-button").disabled = busy;
+  document.querySelector("#logout-button").disabled = busy;
+}
 
 function readSession() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || null; } catch { return null; }
@@ -66,9 +117,22 @@ function storyCard(story, index = 0) {
 function renderStories() {
   const ordered = sortStories(stories);
   const latest = document.querySelector("#latest-grid"); latest.replaceChildren(...ordered.slice(0, 5).map(storyCard));
-  document.querySelectorAll(".theme-section").forEach((section) => {
-    const ids = section.dataset.categories.split(",");
-    const matches = ordered.filter((story) => ids.includes(story.category)).slice(0, 6);
+  const sections = [...document.querySelectorAll(".theme-section")];
+  const categorySections = new Map();
+  const matchesBySection = sections.map(() => []);
+  sections.forEach((section, index) => {
+    section.dataset.categories.split(",").forEach((id) => {
+      if (!categorySections.has(id)) categorySections.set(id, []);
+      categorySections.get(id).push(index);
+    });
+  });
+  ordered.forEach((story) => {
+    (categorySections.get(story.category) || []).forEach((index) => {
+      if (matchesBySection[index].length < 6) matchesBySection[index].push(story);
+    });
+  });
+  sections.forEach((section, index) => {
+    const matches = matchesBySection[index];
     const grid = section.querySelector("[data-story-grid]");
     if (matches.length) grid.replaceChildren(...matches.map(storyCard));
     else { const empty = document.createElement("p"); empty.className = "empty-stories"; empty.textContent = translations[language].empty; grid.replaceChildren(empty); }
@@ -107,7 +171,8 @@ function setFormErrors(errors) {
   Object.entries(postErrors).forEach(([field, element]) => { element.textContent = errors[field] || ""; postForm.elements[field].setAttribute("aria-invalid", String(Boolean(errors[field]))); });
 }
 function syncStories() {
-  stories = [...remoteStories, ...curatedStories.filter((local) => !remoteStories.some((item) => item.id === local.id))];
+  const remoteIds = new Set(remoteStories.map((item) => item.id));
+  stories = [...remoteStories, ...curatedStories.filter((local) => !remoteIds.has(local.id))];
 }
 function renderAdminPosts() {
   if (!adminPostList) return;
@@ -116,6 +181,7 @@ function renderAdminPosts() {
   }
   adminPostList.replaceChildren(...sortStories(remoteStories).map((story) => {
     const button = document.createElement("button"); button.type = "button"; button.className = "admin-post-item"; button.dataset.postId = story.id;
+    button.disabled = isSaving;
     if (story.id === editingPostId) button.setAttribute("aria-current", "true");
     const title = document.createElement("strong"); title.textContent = story.title;
     const meta = document.createElement("span"); meta.textContent = `${categoryLabel(story.category)} · ${formatDate(story.createdAt)}`;
@@ -123,23 +189,28 @@ function renderAdminPosts() {
   }));
 }
 function renderEditorPreview() {
+  clearTimeout(previewTimer);
   const content = postContent.value;
-  postCharacterCount.textContent = `${content.length} / ${postUtils.CONTENT_MAX_LENGTH}`;
+  postCharacterCount.textContent = `${postUtils.textLength(content)} / ${postUtils.CONTENT_MAX_LENGTH}`;
   if (!content.trim()) {
     const empty = document.createElement("p"); empty.textContent = "Start writing to preview your story."; postPreview.replaceChildren(empty); return;
   }
   postUtils.renderPostContent(postPreview, content);
 }
-function resetEditor() {
+function resetEditor(recoverDraft = true) {
   editingPostId = null;
   postForm.reset();
   setFormErrors({});
   document.querySelector("#editor-heading").textContent = "Write a new story";
   postSubmitButton.textContent = "Publish story";
   cancelEditButton.hidden = true;
+  draftStatus.textContent = "";
+  if (recoverDraft) restoreEditorDraft();
   renderEditorPreview(); renderAdminPosts();
 }
 function beginEdit(postId) {
+  if (isSaving) return;
+  saveEditorDraft();
   const story = remoteStories.find((item) => item.id === postId);
   if (!story) return;
   editingPostId = story.id;
@@ -150,12 +221,16 @@ function beginEdit(postId) {
   document.querySelector("#editor-heading").textContent = "Edit published story";
   postSubmitButton.textContent = "Save changes";
   cancelEditButton.hidden = false;
+  draftStatus.textContent = "";
+  restoreEditorDraft();
   renderEditorPreview(); renderAdminPosts();
   postForm.elements.title.focus();
 }
 async function loadRemoteStories() {
+  const loadingRevision = storyRevision;
   try {
     const remote = await postUtils.fetchRemotePosts(supabaseConfig);
+    if (storyRevision !== loadingRevision) return;
     postUtils.savePosts(getBrowserStorage(), remote);
     remoteStories = remote; syncStories(); renderStories(); renderAdminPosts();
   } catch (error) { console.error(error); }
@@ -169,6 +244,8 @@ async function restoreAdminSession() {
     if (session?.access_token !== restoringAccessToken) return;
     adminUser = restoredUser;
     saveSession({ ...session, user: restoredUser });
+    restoreEditorDraft();
+    renderEditorPreview();
   } catch {
     if (session?.access_token !== restoringAccessToken) return;
     adminUser = null;
@@ -186,7 +263,7 @@ loginForm.addEventListener("submit", async (event) => {
     const username = String(data.get("username") || "").trim().toLowerCase();
     const result = await postUtils.signInAdmin(supabaseConfig, { email: `${username}@${ADMIN_LOGIN_DOMAIN}`, password: data.get("password") });
     adminUser = await postUtils.verifyAdminSession(supabaseConfig, result.access_token);
-    saveSession({ access_token: result.access_token, user: adminUser }); loginForm.reset(); updateAdminView(); postStatus.textContent = "관리자로 로그인했습니다.";
+    saveSession({ access_token: result.access_token, user: adminUser }); loginForm.reset(); resetEditor(); updateAdminView(); postStatus.textContent = "관리자로 로그인했습니다.";
   } catch {
     adminUser = null;
     saveSession(null);
@@ -198,6 +275,7 @@ loginForm.addEventListener("submit", async (event) => {
 });
 postForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (isSaving) return;
   if (!session?.access_token || !adminUser) {
     adminUser = null;
     saveSession(null);
@@ -208,36 +286,59 @@ postForm.addEventListener("submit", async (event) => {
   const data = new FormData(postForm);
   const result = postUtils.validatePost({ title: data.get("title"), category: data.get("category"), content: data.get("content") }, categories.map((item) => item.id));
   setFormErrors(result.errors);
-  if (!result.isValid) { postStatus.textContent = "입력 내용을 확인하세요."; return; }
-  postSubmitButton.disabled = true; postStatus.textContent = editingPostId ? "수정 내용을 저장하는 중..." : "발행 중...";
+  if (!result.isValid) { postStatus.textContent = "입력 내용을 확인하세요."; postForm.elements[Object.keys(result.errors)[0]].focus(); return; }
+  saveEditorDraft();
+  setEditorBusy(true); postStatus.textContent = editingPostId ? "수정 내용을 저장하는 중..." : "발행 중...";
   try {
     if (editingPostId) {
       const updated = await postUtils.updateRemotePost(supabaseConfig, editingPostId, result.post, session.access_token);
       remoteStories = remoteStories.map((story) => story.id === updated.id ? updated : story);
-      syncStories(); resetEditor(); renderStories(); postStatus.textContent = "수정 내용을 저장했습니다.";
+      storyRevision += 1;
+      removeEditorDraft(); syncStories(); resetEditor(); renderStories(); postStatus.textContent = "수정 내용을 저장했습니다.";
     } else {
       const published = await postUtils.publishRemotePost(supabaseConfig, result.post, session.access_token);
-      remoteStories = [published, ...remoteStories]; syncStories(); resetEditor(); renderStories(); postStatus.textContent = "이야기를 발행했습니다.";
+      remoteStories = [published, ...remoteStories].slice(0, postUtils.MAX_POSTS);
+      storyRevision += 1;
+      removeEditorDraft(); syncStories(); resetEditor(); renderStories(); postStatus.textContent = "이야기를 발행했습니다.";
     }
-  } catch { postStatus.textContent = editingPostId ? "수정하지 못했습니다. 관리자 권한과 세션을 확인하세요." : "발행하지 못했습니다. 관리자 권한과 세션을 확인하세요."; }
-  finally { postSubmitButton.disabled = false; }
+    postUtils.savePosts(getBrowserStorage(), remoteStories);
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      adminUser = null; saveSession(null); updateAdminView();
+      postStatus.textContent = "세션이 만료되었거나 권한이 없습니다. 다시 로그인하세요. 초안은 이 탭에 보관했습니다.";
+    } else if (error.status === 400 || error.status === 409) {
+      postStatus.textContent = "서버가 입력 내용을 거부했습니다. 제목·본문 길이와 내용을 확인하세요. 초안은 보관했습니다.";
+    } else {
+      postStatus.textContent = "저장 결과를 확인하지 못했습니다. 입력 내용은 유지했습니다. 중복 발행을 피하려면 새로고침 후 게시글 목록을 확인하세요.";
+    }
+  }
+  finally { setEditorBusy(false); }
 });
-postContent.addEventListener("input", renderEditorPreview);
+postForm.addEventListener("input", () => {
+  saveEditorDraft();
+  clearTimeout(previewTimer);
+  postCharacterCount.textContent = `${postUtils.textLength(postContent.value)} / ${postUtils.CONTENT_MAX_LENGTH}`;
+  previewTimer = setTimeout(renderEditorPreview, 150);
+});
 postForm.querySelector(".editor-toolbar").addEventListener("click", (event) => {
+  if (isSaving) return;
   const button = event.target.closest("[data-editor-action]");
   if (!button) return;
   const edit = postUtils.applyEditorAction(postContent.value, postContent.selectionStart, postContent.selectionEnd, button.dataset.editorAction);
+  if (postUtils.textLength(edit.value) > postUtils.CONTENT_MAX_LENGTH) { postErrors.content.textContent = "Formatting would exceed the 5,000-character limit."; return; }
   postContent.value = edit.value; postContent.focus(); postContent.setSelectionRange(edit.selectionStart, edit.selectionEnd); renderEditorPreview();
+  saveEditorDraft();
 });
 adminPostList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-post-id]");
   if (button) beginEdit(button.dataset.postId);
 });
-document.querySelector("#new-post-button").addEventListener("click", () => { resetEditor(); postForm.elements.title.focus(); });
-cancelEditButton.addEventListener("click", resetEditor);
+document.querySelector("#new-post-button").addEventListener("click", () => { if (isSaving) return; saveEditorDraft(); resetEditor(); postForm.elements.title.focus(); });
+cancelEditButton.addEventListener("click", () => { if (isSaving) return; removeEditorDraft(); resetEditor(); });
 document.querySelector("#admin-open").addEventListener("click", () => { updateAdminView(); adminDialog.showModal(); });
 document.querySelector("#admin-close").addEventListener("click", () => adminDialog.close());
-document.querySelector("#logout-button").addEventListener("click", () => { adminUser = null; saveSession(null); resetEditor(); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
+document.querySelector("#logout-button").addEventListener("click", () => { if (isSaving) return; saveEditorDraft(); adminUser = null; saveSession(null); resetEditor(false); updateAdminView(); postStatus.textContent = "로그아웃했습니다."; });
+window.addEventListener("pagehide", saveEditorDraft);
 adminDialog.addEventListener("click", (event) => { if (event.target === adminDialog) adminDialog.close(); });
 
 document.querySelectorAll("[data-language]").forEach((button) => button.addEventListener("click", () => setLanguage(button.dataset.language)));

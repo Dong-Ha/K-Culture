@@ -43,7 +43,7 @@
 
   async function findRemoteStory() {
     if (story || !storyId || !window.KCulturePosts || !window.KCULTURE_SUPABASE) return;
-    try { story = (await window.KCulturePosts.fetchRemotePosts(window.KCULTURE_SUPABASE)).find((item) => item.id === storyId); } catch (error) { console.error(error); }
+    try { story = await window.KCulturePosts.fetchRemotePost(window.KCULTURE_SUPABASE, storyId); } catch (error) { console.error(error); }
   }
 
   document.querySelectorAll("[data-language]").forEach((button) => button.addEventListener("click", () => {

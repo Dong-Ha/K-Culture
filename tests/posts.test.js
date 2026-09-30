@@ -423,3 +423,86 @@ test('every curated story has a linked bilingual long-form article', () => {
   assert.ok(fs.existsSync('article.html'));
   assert.ok(fs.existsSync('js/article.js'));
 });
+
+test('textLength and post validation count emoji as PostgreSQL characters', () => {
+  assert.equal(posts.textLength('😀'), 1);
+  const result = posts.validatePost({
+    title: '😀😀',
+    category: 'kpop',
+    content: '😀'.repeat(10)
+  }, allowedCategories);
+
+  assert.equal(result.isValid, true);
+  assert.equal(posts.textLength(result.post.content), 10);
+});
+
+test('block editor actions preserve the next line at line starts and newline boundaries', () => {
+  assert.equal(posts.applyEditorAction('first\nsecond\nthird', 6, 6, 'heading').value, 'first\n## second\nthird');
+  assert.equal(posts.applyEditorAction('first\nsecond\nthird', 0, 6, 'quote').value, '> first\nsecond\nthird');
+  assert.equal(posts.applyEditorAction('first\nsecond\nthird', 0, 5, 'list').value, '- first\nsecond\nthird');
+});
+
+test('fetchRemotePost requests one numeric ID and maps one valid row', async () => {
+  const fetchMock = async (url, options) => {
+    assert.equal(url, 'https://example.supabase.co/rest/v1/posts?id=eq.42&select=id,title,category,content,created_at&limit=1');
+    assert.equal(options.headers.apikey, 'public-key');
+    return { ok: true, json: async () => [{
+      id: 42,
+      title: 'Remote story',
+      category: 'kpop',
+      content: 'A valid remotely stored story.',
+      created_at: '2026-07-11T00:00:00.000Z'
+    }] };
+  };
+
+  assert.deepEqual(await posts.fetchRemotePost(
+    { url: 'https://example.supabase.co', publishableKey: 'public-key' }, '42', fetchMock
+  ), {
+    id: '42', title: 'Remote story', category: 'kpop', content: 'A valid remotely stored story.',
+    createdAt: '2026-07-11T00:00:00.000Z'
+  });
+});
+
+test('fetchRemotePost returns null for invalid or missing IDs and reports request failures', async () => {
+  let requested = false;
+  const config = { url: 'https://example.supabase.co', publishableKey: 'public-key' };
+  assert.equal(await posts.fetchRemotePost(config, 'not-an-id', async () => { requested = true; }), null);
+  assert.equal(requested, false);
+  assert.equal(await posts.fetchRemotePost(config, '404', async () => ({ ok: true, json: async () => [] })), null);
+  await assert.rejects(
+    posts.fetchRemotePost(config, '42', async () => ({ ok: false, status: 503 })),
+    (error) => error.status === 503 && /load post \(503\)/i.test(error.message)
+  );
+});
+
+test('publish and update surface Supabase HTTP status failures', async () => {
+  const config = { url: 'https://example.supabase.co', publishableKey: 'public-key' };
+  const post = { title: 'Food note', category: 'kfood', content: 'A sufficiently long post.' };
+  const failedRequest = async () => ({ ok: false, status: 403 });
+
+  await assert.rejects(
+    posts.publishRemotePost(config, post, 'admin-access-token', failedRequest),
+    (error) => error.status === 403 && /publish post \(403\)/i.test(error.message)
+  );
+  await assert.rejects(
+    posts.updateRemotePost(config, '8', post, 'admin-access-token', failedRequest),
+    (error) => error.status === 403 && /update post \(403\)/i.test(error.message)
+  );
+});
+
+test('fetchRemotePosts requests deterministic ordering for equal timestamps', async () => {
+  let requestedUrl = '';
+  const result = await posts.fetchRemotePosts(
+    { url: 'https://example.supabase.co', publishableKey: 'public-key' },
+    async (url) => {
+      requestedUrl = url;
+      return { ok: true, json: async () => [
+        { id: 10, title: 'Newer ID', category: 'kpop', content: 'This is a valid stored post.', created_at: '2026-07-11T00:00:00.000Z' },
+        { id: 9, title: 'Older ID', category: 'kpop', content: 'This is another valid stored post.', created_at: '2026-07-11T00:00:00.000Z' }
+      ] };
+    }
+  );
+
+  assert.match(requestedUrl, /order=created_at\.desc,id\.desc/);
+  assert.deepEqual(result.map((post) => post.id), ['10', '9']);
+});

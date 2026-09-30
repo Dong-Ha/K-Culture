@@ -93,10 +93,10 @@
         </aside>
         <form id="post-form" class="admin-form post-editor" novalidate>
           <div><p class="section-kicker">Editor</p><h3 id="editor-heading">Write a new story</h3></div>
-          <label>Title<input name="title" type="text" maxlength="80" required><span class="form-error" id="post-title-error"></span></label>
-          <label>Theme<select name="category" id="post-category" required><option value="">Choose a theme</option></select><span class="form-error" id="post-category-error"></span></label>
+          <label>Title<input name="title" type="text" aria-describedby="post-title-error" required><span class="form-error" id="post-title-error"></span></label>
+          <label>Theme<select name="category" id="post-category" aria-describedby="post-category-error" required><option value="">Choose a theme</option></select><span class="form-error" id="post-category-error"></span></label>
           <div class="editor-field">
-            <span class="editor-label">Story</span>
+            <label class="editor-label" for="post-content">Story</label>
             <div class="editor-toolbar" role="toolbar" aria-label="Story formatting">
               <button type="button" data-editor-action="heading" aria-label="Heading">H2</button>
               <button type="button" data-editor-action="bold" aria-label="Bold"><strong>B</strong></button>
@@ -105,12 +105,13 @@
               <button type="button" data-editor-action="quote" aria-label="Quote">Quote</button>
               <button type="button" data-editor-action="link" aria-label="Link">Link</button>
             </div>
-            <textarea name="content" id="post-content" rows="12" maxlength="5000" aria-describedby="post-content-help post-content-error" required></textarea>
+            <textarea name="content" id="post-content" rows="12" aria-describedby="post-content-help post-content-error" required></textarea>
             <div class="editor-meta"><span id="post-content-help">Markdown shortcuts are supported.</span><output id="post-character-count" for="post-content">0 / 5000</output></div>
             <span class="form-error" id="post-content-error"></span>
           </div>
           <section class="editor-preview" aria-labelledby="preview-title"><h4 id="preview-title">Preview</h4><div id="post-preview"><p>Start writing to preview your story.</p></div></section>
           <div class="editor-actions"><button class="button-primary" id="post-submit-button" type="submit">Publish story</button><button id="cancel-edit-button" type="button" hidden>Cancel edit</button></div>
+          <p id="draft-status" class="form-status" role="status" aria-live="polite"></p>
         </form>
       </div>
     </section>

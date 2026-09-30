@@ -4,6 +4,13 @@
   const TITLE_MAX_LENGTH = 80;
   const CONTENT_MAX_LENGTH = 5000;
   const DEFAULT_CATEGORY_IDS = ["kpop", "kdrama", "kfood", "hanbok", "festivals", "travel"];
+  const DEFAULT_CATEGORY_SET = new Set(DEFAULT_CATEGORY_IDS);
+
+  function textLength(value) {
+    let length = 0;
+    for (const character of String(value || "")) length += 1;
+    return length;
+  }
   const DEFAULT_POSTS = [
     {
       id: "starter-kfood-route",
@@ -37,21 +44,20 @@
   }
 
   function getAllowedCategories(allowedCategories) {
-    const categories = Array.isArray(allowedCategories) && allowedCategories.length
-      ? allowedCategories
-      : DEFAULT_CATEGORY_IDS;
-
-    return new Set(categories.map(normalizeText).filter(Boolean));
+    if (!Array.isArray(allowedCategories) || !allowedCategories.length) return DEFAULT_CATEGORY_SET;
+    return new Set(allowedCategories.map(normalizeText).filter(Boolean));
   }
 
   function validatePost(input, allowedCategories) {
     const post = normalizePost(input);
     const categorySet = getAllowedCategories(allowedCategories);
     const errors = {};
+    const titleLength = textLength(post.title);
+    const contentLength = textLength(post.content);
 
-    if (post.title.length < 2) {
+    if (titleLength < 2) {
       errors.title = "Title must be at least 2 characters.";
-    } else if (post.title.length > TITLE_MAX_LENGTH) {
+    } else if (titleLength > TITLE_MAX_LENGTH) {
       errors.title = `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`;
     }
 
@@ -61,9 +67,9 @@
       errors.category = "Choose a valid category.";
     }
 
-    if (post.content.length < 10) {
+    if (contentLength < 10) {
       errors.content = "Post content must be at least 10 characters.";
-    } else if (post.content.length > CONTENT_MAX_LENGTH) {
+    } else if (contentLength > CONTENT_MAX_LENGTH) {
       errors.content = `Post content must be ${CONTENT_MAX_LENGTH} characters or fewer.`;
     }
 
@@ -194,8 +200,8 @@
 
   function applyEditorAction(value, selectionStart, selectionEnd, action) {
     const source = String(value || "");
-    const start = Math.max(0, Number(selectionStart) || 0);
-    const end = Math.max(start, Number(selectionEnd) || start);
+    const start = Math.min(source.length, Math.max(0, Number(selectionStart) || 0));
+    const end = Math.min(source.length, Math.max(start, Number(selectionEnd) || start));
     const selected = source.slice(start, end);
     const inlineActions = {
       bold: ["**", "**", "bold text"],
@@ -213,8 +219,8 @@
       };
     }
 
-    const lineStart = source.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-    const lineEndMatch = source.indexOf("\n", end);
+    const lineStart = start === 0 ? 0 : source.lastIndexOf("\n", start - 1) + 1;
+    const lineEndMatch = source.indexOf("\n", end > start && source[end - 1] === "\n" ? end - 1 : end);
     const lineEnd = lineEndMatch === -1 ? source.length : lineEndMatch;
     const lines = source.slice(lineStart, lineEnd).split("\n");
     const prefix = action === "heading" ? "## " : action === "quote" ? "> " : action === "list" ? "- " : "";
@@ -281,10 +287,30 @@
     };
   }
 
+  function remoteError(response, action) {
+    const error = new Error(`Unable to ${action} post (${response.status}).`);
+    error.status = response.status;
+    return error;
+  }
+
+  async function fetchRemotePost(config, postId, fetchImpl) {
+    const id = String(postId || "").trim();
+    if (!/^\d+$/.test(id)) return null;
+    const response = await (fetchImpl || global.fetch)(
+      `${config.url}/rest/v1/posts?id=eq.${encodeURIComponent(id)}&select=id,title,category,content,created_at&limit=1`,
+      { headers: getSupabaseHeaders(config.publishableKey) }
+    );
+    if (!response.ok) throw remoteError(response, "load");
+    const data = await response.json();
+    if (!data[0]) return null;
+    const post = fromRemotePost(data[0]);
+    return isValidStoredPost(post) ? post : null;
+  }
+
   async function fetchRemotePosts(config, fetchImpl) {
     const request = fetchImpl || global.fetch;
     const response = await request(
-      `${config.url}/rest/v1/posts?select=id,title,category,content,created_at&order=created_at.desc&limit=${MAX_POSTS}`,
+      `${config.url}/rest/v1/posts?select=id,title,category,content,created_at&order=created_at.desc,id.desc&limit=${MAX_POSTS}`,
       { headers: getSupabaseHeaders(config.publishableKey) }
     );
 
@@ -309,10 +335,11 @@
     });
 
     if (!response.ok) {
-      throw new Error(`Unable to publish post (${response.status}).`);
+      throw remoteError(response, "publish");
     }
 
     const data = await response.json();
+    if (!data[0]) throw new Error("The published post was not returned. Reload before trying again.");
     return fromRemotePost(data[0]);
   }
 
@@ -331,7 +358,7 @@
     });
 
     if (!response.ok) {
-      throw new Error(`Unable to update post (${response.status}).`);
+      throw remoteError(response, "update");
     }
 
     const data = await response.json();
@@ -388,6 +415,7 @@
     DEFAULT_CATEGORY_IDS,
     DEFAULT_POSTS,
     normalizeText,
+    textLength,
     normalizeContent,
     normalizePost,
     getAllowedCategories,
@@ -405,6 +433,7 @@
     applyEditorAction,
     renderPostContent,
     fetchRemotePosts,
+    fetchRemotePost,
     publishRemotePost,
     updateRemotePost,
     signInAdmin,

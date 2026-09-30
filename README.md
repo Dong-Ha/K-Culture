@@ -54,6 +54,8 @@ Then open `http://localhost:8000`.
 - Curated starter stories with Supabase-backed administrator posts
 - Private administrator studio for publishing and editing stories
 - Formatting toolbar, live preview, and 5,000-character long-form posts
+- Per-administrator drafts kept in the current tab across reloads, including separate drafts for each edited story
+- Single-post article queries, stable latest-story ordering, and guarded publishing
 - Responsive layout for mobile and desktop
 - Basic keyboard focus and accessibility-friendly button semantics
 
@@ -87,6 +89,16 @@ it removes anonymous and broad table permissions, exposes only the public post c
 keeps `id`, `created_at`, and `created_by` server-controlled, and restricts publishing
 and editing to user UUIDs registered in `public.admins`. Existing installations must
 run the updated file once to enable the longer body format and administrator UPDATE policy.
+
+For an existing installation, `supabase/post-performance.sql` adds the index used by
+latest-story queries without changing post data or access rules. New installations
+include this index in `schema.sql`.
+
+The studio keeps unfinished drafts in `sessionStorage`, scoped to the administrator
+and story. Signing back in or selecting the story restores its draft. Drafts stay
+in the current tab and are removed after successful publication or when cancelling
+an edit; closing the tab clears them. If tab storage is blocked, the editor shows
+a notice and keeps the current input. Drafts are not uploaded to Supabase.
 
 The publishable key in `js/supabase-config.js` is intended for browser use. Access is
 restricted by the row-level security policies in `supabase/schema.sql`; never place a

@@ -30,6 +30,9 @@ alter table public.posts validate constraint posts_content_normalized;
 create index if not exists posts_created_by_idx
   on public.posts (created_by);
 
+create index if not exists posts_latest_idx
+  on public.posts (created_at desc, id desc);
+
 do $$
 begin
   if not exists (
