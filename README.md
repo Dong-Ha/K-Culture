@@ -104,6 +104,23 @@ The publishable key in `js/supabase-config.js` is intended for browser use. Acce
 restricted by the row-level security policies in `supabase/schema.sql`; never place a
 Supabase secret or service-role key in this repository.
 
+### Daily Supabase keepalive
+
+`.github/workflows/supabase-keepalive.yml` queries `posts?select=id&limit=1` once
+per day at **09:17 KST (00:17 UTC)** to keep the database active. It only reads
+data, reuses the public URL and publishable key in `js/supabase-config.js`, and
+requires no additional GitHub Secrets. Transient request failures are retried;
+an unsuccessful request marks the workflow as failed.
+
+Merge the workflow into the default branch (`master`) to enable the schedule.
+You can also run **Actions > Supabase daily keepalive > Run workflow** manually.
+This helps prevent inactivity pauses; an already paused project must first be
+restored in the Supabase dashboard.
+
+GitHub may delay scheduled runs. In public repositories, it disables schedules
+after 60 days without repository activity; re-enable the workflow in Actions if
+needed. See the [GitHub schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
 The browser verifies both the Supabase access token and `is_admin()` membership before
 showing publishing controls. That check improves the UI boundary, but the database RLS
 policy and column-level grants are the authoritative security boundary. Keep leaked
