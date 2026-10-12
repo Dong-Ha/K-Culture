@@ -59,6 +59,21 @@ Then open `http://localhost:8000`.
 - Responsive layout for mobile and desktop
 - Basic keyboard focus and accessibility-friendly button semantics
 
+## Illustrated stories
+
+Two bilingual curated stories include standalone Diagram Design figures:
+
+- `guide-market-handoffs`: a Swimlane showing a suggested market order-to-table workflow.
+- `guide-culture-evening`: a Sankey allocating an illustrative 120-minute evening. The numbers are a personal planning example, not survey data.
+
+The figures live in `assets/diagrams/` as self-contained HTML with inline SVG and
+CSS, using the site's warm paper, dark ink, system font stacks, and a darker coral
+(`#b73324`) for readable diagram accents. They require no external fonts or scripts.
+Curated article `diagram` metadata supplies the local path and bilingual titles
+and captions. The article renderer embeds each figure in a sandboxed iframe;
+`#ko` selects its Korean variant. On narrow screens, scroll within the figure or
+use **Open full diagram**. Both variants include accessible SVG descriptions.
+
 ## Future improvements
 
 - Add curated, license-safe images

@@ -34,10 +34,32 @@
     document.querySelector("#article-date").textContent = formatDate(story.createdAt);
     const minutes = Math.max(2, Math.ceil(window.KCulturePosts.getPostExcerpt(content, 10000).length / 500));
     document.querySelector("#article-read-time").textContent = story.readTime || (language === "ko" ? `${minutes}분 읽기` : `${minutes} min read`);
-    document.querySelector("#article-art").dataset.theme = story.category;
+    const diagram = details[story.id]?.diagram;
+    const art = document.querySelector("#article-art");
+    art.dataset.theme = story.category;
+    art.hidden = Boolean(diagram);
     const body = document.querySelector("#article-body");
     if (paragraphs) body.replaceChildren(...paragraphs.map((text) => { const p = document.createElement("p"); p.textContent = text; return p; }));
     else window.KCulturePosts.renderPostContent(body, content);
+    const previousDiagram = document.querySelector(".article-diagram");
+    if (previousDiagram) previousDiagram.remove();
+    if (diagram) {
+      const figure = document.createElement("figure");
+      figure.className = "article-diagram";
+      const frame = document.createElement("iframe");
+      const diagramPath = diagram.path + (language === "ko" ? "#ko" : "");
+      frame.src = diagramPath;
+      frame.title = language === "ko" ? diagram.titleKo : diagram.title;
+      frame.setAttribute("sandbox", "");
+      frame.loading = "lazy";
+      const caption = document.createElement("figcaption");
+      caption.textContent = language === "ko" ? diagram.captionKo : diagram.caption;
+      const link = document.createElement("a");
+      link.href = diagramPath;
+      link.textContent = language === "ko" ? "다이어그램 크게 보기" : "Open full diagram";
+      figure.append(frame, caption, link);
+      body.before(figure);
+    }
     document.querySelector("#article-content").hidden = false;
   }
 
